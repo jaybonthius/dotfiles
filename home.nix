@@ -136,6 +136,8 @@ in {
   ] ++ lib.optionals stdenv.isLinux [
     earlyoom
     inotify-tools
+  ] ++ lib.optionals stdenv.isDarwin [
+    fswatch
   ];
 
   # ── Environment variables ───────────────────────────────────────────
@@ -307,6 +309,19 @@ in {
       ProgramArguments = [ "${pkgs.emacs-nox}/bin/emacs" "--fg-daemon" ];
       KeepAlive = true;
       RunAtLoad = true;
+    };
+  };
+
+  launchd.agents.theme-watcher = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${pkgs.bash}/bin/bash" "${homeDirectory}/bin/watch-theme-zellij.sh" ];
+      KeepAlive = true;
+      RunAtLoad = true;
+      EnvironmentVariables = {
+        PATH = lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.gnused pkgs.fswatch ];
+        HOME = homeDirectory;
+      };
     };
   };
 

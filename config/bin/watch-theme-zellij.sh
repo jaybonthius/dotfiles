@@ -3,6 +3,8 @@
 # Watches ~/.local/state/theme and updates Zellij's config.kdl theme line.
 # Zellij hot-reloads config changes automatically.
 #
+# Cross-platform: uses inotifywait on Linux, fswatch on macOS.
+#
 # If config.kdl is a symlink (e.g. from Nix Home Manager), it is replaced
 # with a mutable copy so that sed can edit it in place.
 
@@ -28,7 +30,11 @@ apply_theme() {
     esac
     if [[ -f "$ZELLIJ_CONFIG" ]] || [[ -L "$ZELLIJ_CONFIG" ]]; then
         ensure_mutable_config
-        sed -i "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
+        if [[ "$(uname)" == "Darwin" ]]; then
+            sed -i '' "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
+        else
+            sed -i "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
+        fi
     fi
 }
 
@@ -41,10 +47,18 @@ fi
 # Apply on startup
 apply_theme
 
-# Watch for changes
-exec inotifywait -m -e close_write --format '%f' "$(dirname "$THEME_FILE")" 2>/dev/null |
-while read -r file; do
-    if [[ "$file" == "$(basename "$THEME_FILE")" ]]; then
+# Watch for changes (platform-specific)
+if [[ "$(uname)" == "Darwin" ]]; then
+    # macOS: use fswatch, monitoring for file writes only
+    fswatch -0 --event Updated "$THEME_FILE" | while read -d '' _; do
         apply_theme
-    fi
-done
+    done
+else
+    # Linux: use inotifywait
+    exec inotifywait -m -e close_write --format '%f' "$(dirname "$THEME_FILE")" 2>/dev/null |
+    while read -r file; do
+        if [[ "$file" == "$(basename "$THEME_FILE")" ]]; then
+            apply_theme
+        fi
+    done
+fi
