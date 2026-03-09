@@ -288,9 +288,15 @@ Disables all active themes first, then loads the preferred one."
 (defun jb-theme--on-file-change (event)
   "File-notify callback for `jb-theme-state-file' changes.
 EVENT is the notification event from `file-notify-add-watch'."
-  (when (memq (nth 1 event) '(changed created))
-    ;; Small delay to ensure the file write is complete.
-    (run-with-timer 0.1 nil #'jb-theme-apply)))
+  (let ((action (nth 1 event)))
+    (cond
+     ((memq action '(changed created renamed))
+      ;; Small delay to ensure the file write is complete.
+      (run-with-timer 0.1 nil #'jb-theme-apply))
+     ((eq action 'deleted)
+      ;; File was deleted (e.g. atomic replacement creates a new inode).
+      ;; Re-establish the watch once the new file appears.
+      (run-with-timer 0.5 nil #'jb-theme--setup-watch)))))
 
 (defun jb-set-preferred-dark-theme (theme)
   "Set THEME as the preferred dark-mode theme.
@@ -318,6 +324,36 @@ If currently in light mode, switch to it immediately."
     (jb-theme-apply))
   (message "Preferred light theme set to: %s" theme))
 
+(defun jb-theme--setup-watch ()
+  "Set up the file-notify watch for `jb-theme-state-file'.
+On kqueue (macOS), watch the file directly since kqueue does not fire
+events on a directory for in-place content changes to contained files.
+On inotify (Linux), watch the directory since inotify's close_write on
+a directory correctly fires when contained files are written.
+Also re-applies the current theme."
+  ;; Remove any existing watcher.
+  (when jb-theme--watch-descriptor
+    (ignore-errors (file-notify-rm-watch jb-theme--watch-descriptor))
+    (setq jb-theme--watch-descriptor nil))
+  (when (file-exists-p jb-theme-state-file)
+    (if (eq file-notify--library 'kqueue)
+        ;; macOS/kqueue: watch the file directly.
+        (setq jb-theme--watch-descriptor
+              (file-notify-add-watch
+               jb-theme-state-file
+               '(change)
+               #'jb-theme--on-file-change))
+      ;; Linux/inotify: watch the directory, filter for our file.
+      (setq jb-theme--watch-descriptor
+            (file-notify-add-watch
+             (file-name-directory jb-theme-state-file)
+             '(change)
+             (lambda (event)
+               (when (string= (file-name-nondirectory (nth 2 event))
+                               (file-name-nondirectory jb-theme-state-file))
+                 (jb-theme--on-file-change event))))))
+    (jb-theme-apply)))
+
 (defun jb-theme-start-watcher ()
   "Start watching `jb-theme-state-file' and apply the current theme.
 Ensures required directories and files exist, sets up file-notify."
@@ -328,22 +364,7 @@ Ensures required directories and files exist, sets up file-notify."
   (unless (file-exists-p jb-theme-state-file)
     (with-temp-file jb-theme-state-file
       (insert "dark\n")))
-  ;; Remove any existing watcher.
-  (when jb-theme--watch-descriptor
-    (file-notify-rm-watch jb-theme--watch-descriptor)
-    (setq jb-theme--watch-descriptor nil))
-  ;; Watch the directory (more reliable than watching the file directly,
-  ;; since replacing the file creates a new inode).
-  (setq jb-theme--watch-descriptor
-        (file-notify-add-watch
-         (file-name-directory jb-theme-state-file)
-         '(change)
-         (lambda (event)
-           (when (string= (file-name-nondirectory (nth 2 event))
-                          (file-name-nondirectory jb-theme-state-file))
-             (jb-theme--on-file-change event)))))
-  ;; Apply the current theme immediately.
-  (jb-theme-apply))
+  (jb-theme--setup-watch))
 
 (defun jb-theme-stop-watcher ()
   "Stop watching the theme state file."

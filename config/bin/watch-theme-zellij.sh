@@ -5,18 +5,31 @@
 #
 # Cross-platform: uses inotifywait on Linux, fswatch on macOS.
 #
+# Also watches the Zellij config directory so that if home-manager (or
+# anything else) overwrites config.kdl, the correct theme is re-applied.
+#
 # If config.kdl is a symlink (e.g. from Nix Home Manager), it is replaced
 # with a mutable copy so that sed can edit it in place.
 
 THEME_FILE="$HOME/.local/state/theme"
 ZELLIJ_CONFIG="$HOME/.config/zellij/config.kdl"
 
+THEME_DIR="$(dirname "$THEME_FILE")"
+ZELLIJ_DIR="$(dirname "$ZELLIJ_CONFIG")"
+THEME_BASE="$(basename "$THEME_FILE")"
+ZELLIJ_BASE="$(basename "$ZELLIJ_CONFIG")"
+
 ensure_mutable_config() {
     if [[ -L "$ZELLIJ_CONFIG" ]]; then
+        # Replace symlink with a mutable copy of the target
         local target
-        target=$(readlink -f "$ZELLIJ_CONFIG")
+        target=$(realpath "$ZELLIJ_CONFIG")
         rm "$ZELLIJ_CONFIG"
         cp "$target" "$ZELLIJ_CONFIG"
+        chmod u+w "$ZELLIJ_CONFIG"
+    elif [[ -f "$ZELLIJ_CONFIG" ]] && [[ ! -w "$ZELLIJ_CONFIG" ]]; then
+        # File exists but is read-only (e.g. Nix Home Manager copied it)
+        chmod u+w "$ZELLIJ_CONFIG"
     fi
 }
 
@@ -30,16 +43,16 @@ apply_theme() {
     esac
     if [[ -f "$ZELLIJ_CONFIG" ]] || [[ -L "$ZELLIJ_CONFIG" ]]; then
         ensure_mutable_config
-        if [[ "$(uname)" == "Darwin" ]]; then
-            sed -i '' "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
-        else
-            sed -i "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
-        fi
+        # Use sed -i (GNU) syntax unconditionally. The launchd agent on macOS
+        # has GNU sed from Nix in PATH, so BSD sed -i '' would break.
+        # GNU sed -i without a suffix argument works on both platforms when
+        # GNU sed is available (guaranteed here via Nix PATH on both OS).
+        sed -i "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
     fi
 }
 
 # Ensure theme file exists
-mkdir -p "$(dirname "$THEME_FILE")"
+mkdir -p "$THEME_DIR"
 if [[ ! -f "$THEME_FILE" ]]; then
     echo "dark" > "$THEME_FILE"
 fi
@@ -49,15 +62,22 @@ apply_theme
 
 # Watch for changes (platform-specific)
 if [[ "$(uname)" == "Darwin" ]]; then
-    # macOS: use fswatch, monitoring for file writes only
-    fswatch -0 --event Updated "$THEME_FILE" | while read -d '' _; do
-        apply_theme
+    # macOS: watch both the theme state directory and the zellij config
+    # directory. This catches theme toggles AND config.kdl being overwritten
+    # by home-manager switch. Watching directories (not files) is required
+    # because atomic file replacements create new inodes.
+    fswatch -0 "$THEME_DIR" "$ZELLIJ_DIR" | while read -d '' changed; do
+        base="$(basename "$changed")"
+        if [[ "$base" == "$THEME_BASE" || "$base" == "$ZELLIJ_BASE" ]]; then
+            apply_theme
+        fi
     done
 else
-    # Linux: use inotifywait
-    exec inotifywait -m -e close_write --format '%f' "$(dirname "$THEME_FILE")" 2>/dev/null |
-    while read -r file; do
-        if [[ "$file" == "$(basename "$THEME_FILE")" ]]; then
+    # Linux: use inotifywait on both directories
+    exec inotifywait -m -e close_write --format '%w%f' "$THEME_DIR" "$ZELLIJ_DIR" 2>/dev/null |
+    while read -r path; do
+        base="$(basename "$path")"
+        if [[ "$base" == "$THEME_BASE" || "$base" == "$ZELLIJ_BASE" ]]; then
             apply_theme
         fi
     done
