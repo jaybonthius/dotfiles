@@ -112,6 +112,8 @@ in {
     typst
     tinymist
     templ
+    nixd
+    nixfmt-rfc-style
 
     # Python tools
     uv

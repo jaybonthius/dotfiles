@@ -1393,9 +1393,17 @@ once the new daemon is up."
   ;; before the first workspace/didChangeConfiguration clobbers it.
   (add-to-list 'eglot-server-programs
                '(typst-ts-mode . ("tinymist" "lsp"
-                                  :initializationOptions
-                                  (:formatterMode "typstyle"
-                                                  :formatterPrintWidth 80))))
+                                   :initializationOptions
+                                   (:formatterMode "typstyle"
+                                                   :formatterPrintWidth 80))))
+
+  ;; Register nixd as the Nix LSP server.
+  (add-to-list 'eglot-server-programs
+               '(nix-ts-mode . ("nixd")))
+
+  ;; Register sourcekit-lsp as the Swift LSP server.
+  (add-to-list 'eglot-server-programs
+               '(swift-mode . ("xcrun" "sourcekit-lsp")))
 
   (add-hook 'eglot-managed-mode-hook (lambda () (eglot-inlay-hints-mode -1)))
 
@@ -1551,6 +1559,38 @@ once the new daemon is up."
     "Set up format-on-save for Terraform via eglot (terraform-ls)."
     (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
   (add-hook 'terraform-mode-hook #'jb-terraform-before-save-hooks))
+
+;;; Nix
+
+;; nix-ts-mode: tree-sitter based major mode for Nix expressions.
+;; Provides syntax highlighting and indentation via tree-sitter-nix.
+;; LSP provided by nixd via eglot; formatting via nixfmt (eglot).
+(use-package nix-ts-mode
+  :ensure t
+  :defer t
+  :mode "\\.nix\\'"
+  :hook ((nix-ts-mode . eglot-ensure))
+  :config
+  (defun jb-nix-before-save-hooks ()
+    "Set up format-on-save for Nix via eglot (nixd/nixfmt)."
+    (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
+  (add-hook 'nix-ts-mode-hook #'jb-nix-before-save-hooks))
+
+;;; Swift
+
+;; swift-mode: major mode for Swift source files.
+;; Provides syntax highlighting, indentation, imenu, and REPL support.
+;; LSP provided by sourcekit-lsp via eglot; formatting on save via eglot.
+(use-package swift-mode
+  :ensure t
+  :defer t
+  :mode "\\.swift\\'"
+  :hook ((swift-mode . eglot-ensure))
+  :config
+  (defun jb-swift-before-save-hooks ()
+    "Set up format-on-save for Swift via eglot (sourcekit-lsp)."
+    (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
+  (add-hook 'swift-mode-hook #'jb-swift-before-save-hooks))
 
 ;;; Markdown
 
