@@ -128,8 +128,14 @@ post_setup_notes() {
     echo "  3. Install Python LSP:"
     echo "     uv tool install basedpyright"
     echo ""
-    echo "  4. Start Emacs daemon:"
-    echo "     systemctl --user start emacs-daemon"
+    echo "  4. Start Emacs daemon (first run only):"
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "     # launchd agent is installed — just log out and back in,"
+        echo "     # or start it now with:"
+        echo "     launchctl load ~/Library/LaunchAgents/org.nix-community.home.emacs-daemon.plist"
+    else
+        echo "     systemctl --user start emacs-daemon"
+    fi
     echo ""
 }
 

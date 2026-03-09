@@ -178,12 +178,21 @@ in {
     enableFishIntegration = false; # we use PatrickF1/fzf.fish plugin instead
   };
 
-  # Symlink fish support files (functions and plugin list)
+  # Symlink fish support files (functions only — fish_plugins is left
+  # unmanaged so Fisher can write to it after plugin installs)
   xdg.configFile = {
-    "fish/fish_plugins".source = ./config/fish/fish_plugins;
     "fish/functions/fisher.fish".source = ./config/fish/functions/fisher.fish;
     "fish/functions/zlast.fish".source = ./config/fish/functions/zlast.fish;
   };
+
+  # Seed fish_plugins on first run only (Fisher owns it after that)
+  home.activation.seedFishPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    if [ ! -f "$HOME/.config/fish/fish_plugins" ]; then
+      run mkdir -p "$HOME/.config/fish"
+      run cp "${./config/fish/fish_plugins}" "$HOME/.config/fish/fish_plugins"
+      run chmod 644 "$HOME/.config/fish/fish_plugins"
+    fi
+  '';
 
   # ── Git ─────────────────────────────────────────────────────────────
 
@@ -289,6 +298,17 @@ in {
       };
     };
 
+  };
+
+  # ── Launchd agents (macOS only) ─────────────────────────────────────
+
+  launchd.agents.emacs-daemon = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${pkgs.emacs-nox}/bin/emacs" "--fg-daemon" ];
+      KeepAlive = true;
+      RunAtLoad = true;
+    };
   };
 
   # ── Terminfo (activation script) ────────────────────────────────────
