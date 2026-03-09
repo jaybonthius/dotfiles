@@ -1,0 +1,45 @@
+// Project layout for zellij
+// Usage: zellij -s <session-name> --layout project options --default-cwd /path/to/project
+//
+// Tab 1: emacsclient connected to the Emacs daemon
+// Tab 2: terminal
+
+layout {
+    default_tab_template {
+        children
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+
+    // New tabs created at runtime get a plain terminal with zjstatus bar
+    new_tab_template {
+        pane
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+
+    tab name="editor" focus=true {
+        // emacsclient connects to the Emacs daemon (systemd user service).
+        // Tagged with the Zellij session name via -F so the WASM plugin
+        // can surgically kill this specific frame on session switch.
+        //
+        // Gated startup loop: before connecting, checks
+        // ~/.local/state/zellij-emacs-session to see if THIS session is
+        // the active one. On session switch the WASM plugin writes "NONE"
+        // to the gate file first (blocking all loops), kills old clients,
+        // then writes the new session name so only the correct loop proceeds.
+        pane command="bash" {
+            args "-c" "while true; do while [ \"$(cat ~/.local/state/zellij-emacs-session 2>/dev/null)\" != \"$ZELLIJ_SESSION_NAME\" ]; do sleep 0.1; done; emacsclient -t -F '((zellij-session . \"'\"$ZELLIJ_SESSION_NAME\"'\"))'; done"
+        }
+    }
+
+    tab name="opencode" {
+        pane command="opencode"
+    }
+
+    tab name="terminal" {
+        pane
+    }
+}

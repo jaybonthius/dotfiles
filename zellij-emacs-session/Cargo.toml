@@ -1,0 +1,13 @@
+[package]
+name = "zellij-emacs-session"
+version = "0.1.0"
+edition = "2021"
+description = "Zellij plugin that syncs the Emacs daemon easysession to the active Zellij session"
+
+[dependencies]
+zellij-tile = "0.43.1"
+
+[profile.release]
+opt-level = "s"     # optimize for size
+lto = true
+strip = true
