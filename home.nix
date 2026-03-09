@@ -22,9 +22,9 @@ let
 
     src = let
       platform = {
-        "x86_64-linux"   = { suffix = "linux-x64";       ext = "tar.gz"; hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4="; };
-        "aarch64-linux"  = { suffix = "linux-arm64";      ext = "tar.gz"; hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0="; };
-        "aarch64-darwin"  = { suffix = "darwin-arm64";     ext = "zip";    hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4="; };
+        "x86_64-linux"    = { suffix = "linux-x64";   ext = "tar.gz"; hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4="; };
+        "aarch64-linux"   = { suffix = "linux-arm64";  ext = "tar.gz"; hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0="; };
+        "aarch64-darwin"  = { suffix = "darwin-arm64"; ext = "zip";    hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4="; };
       }.${pkgs.stdenv.hostPlatform.system} or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");
     in pkgs.fetchurl {
       url = "https://github.com/anomalyco/opencode/releases/download/v${version}/opencode-${platform.suffix}.${platform.ext}";
@@ -36,9 +36,6 @@ let
     nativeBuildInputs = [ pkgs.makeWrapper ]
       ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.unzip ];
 
-    # Critical: do NOT strip or patch the binary.
-    # It is a Bun-compiled executable with embedded bytecode that
-    # gets corrupted by strip and autoPatchelfHook.
     dontStrip = true;
     dontPatchELF = true;
     dontAutoPatchelf = true;

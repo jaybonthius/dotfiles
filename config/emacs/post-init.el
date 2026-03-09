@@ -1307,15 +1307,18 @@ Does nothing if SESSION-NAME is already the current session."
   (add-hook 'server-after-make-frame-hook #'jb-zellij-initial-session-setup)
 
   (defun jb-restart-emacs-daemon ()
-    "Save the current easysession and restart the Emacs daemon via systemd.
-Uses `start-process' so the restart is asynchronous -- systemd kills
-this Emacs process and starts a fresh one.  The Zellij editor pane's
-while-loop will automatically reconnect once the new daemon is up."
+    "Save the current easysession and restart the Emacs daemon.
+On Linux, restarts via systemd.  On macOS, restarts via launchctl.
+The Zellij editor pane's while-loop will automatically reconnect
+once the new daemon is up."
     (interactive)
     (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
       (when (bound-and-true-p easysession--current-session-name)
         (easysession-save))
-      (start-process "restart-emacs" nil "systemctl" "--user" "restart" "emacs-daemon")))
+      (if (eq system-type 'darwin)
+          (start-process "restart-emacs" nil "bash" "-c"
+                         "launchctl kickstart -k gui/$(id -u)/org.nix-community.home.emacs-daemon")
+        (start-process "restart-emacs" nil "systemctl" "--user" "restart" "emacs-daemon"))))
 
   (global-set-key (kbd "C-c g d") #'jb-restart-emacs-daemon)
 
