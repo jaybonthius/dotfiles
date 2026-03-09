@@ -129,7 +129,9 @@ post_setup_notes() {
 # ── Main ──────────────────────────────────────────────────────────────
 
 run_all() {
-    setup_swap
+    if [ "$(uname -s)" = "Linux" ]; then
+        setup_swap
+    fi
     install_nix
     enable_flakes
     switch
