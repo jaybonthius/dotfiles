@@ -22,7 +22,7 @@ let
 
     src = let
       platform = {
-        "x86_64-linux"   = { suffix = "linux-x64";       ext = "tar.gz"; hash = "sha256-PZ9gklPW6+IjC8yLDT2ySP8Gy5LxaXmXnJqp3qXbxKc="; };
+        "x86_64-linux"   = { suffix = "linux-x64";       ext = "tar.gz"; hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4="; };
         "aarch64-linux"  = { suffix = "linux-arm64";      ext = "tar.gz"; hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0="; };
         "aarch64-darwin"  = { suffix = "darwin-arm64";     ext = "zip";    hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4="; };
       }.${pkgs.stdenv.hostPlatform.system} or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");

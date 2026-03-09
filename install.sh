@@ -74,6 +74,17 @@ switch() {
 
     info "Using configuration: $config"
 
+    # Back up pre-existing config dirs that Home Manager will manage.
+    # On a fresh machine these may already exist (e.g. emacs/ from a
+    # previous setup) and Home Manager can't create symlinks inside a
+    # regular directory it doesn't own.
+    for dir in emacs fish zellij; do
+        if [ -d "$HOME/.config/$dir" ] && [ ! -L "$HOME/.config/$dir" ]; then
+            info "Backing up ~/.config/$dir → ~/.config/$dir.pre-nix"
+            mv "$HOME/.config/$dir" "$HOME/.config/$dir.pre-nix"
+        fi
+    done
+
     # --impure allows home.nix to read $USER/$HOME via builtins.getEnv
     # -b backup moves conflicting files (e.g. config.kdl replaced by theme-watcher)
     if ! command -v home-manager >/dev/null 2>&1; then
