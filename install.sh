@@ -79,12 +79,11 @@ switch() {
     info "Using configuration: $config"
 
     # --impure allows home.nix to read $USER/$HOME via builtins.getEnv
-    # -b backup moves conflicting files (e.g. config.kdl replaced by theme-watcher)
     if ! command -v home-manager >/dev/null 2>&1; then
         info "Bootstrapping home-manager..."
-        nix run home-manager/master -- switch --impure -b backup --flake "$DOTFILES_DIR#$config"
+        nix run home-manager/master -- switch --impure --flake "$DOTFILES_DIR#$config"
     else
-        home-manager switch --impure -b backup --flake "$DOTFILES_DIR#$config"
+        home-manager switch --impure --flake "$DOTFILES_DIR#$config"
     fi
     ok "home-manager switch complete"
 }

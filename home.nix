@@ -96,9 +96,6 @@ in {
   # ── Packages ────────────────────────────────────────────────────────
 
   home.packages = with pkgs; [
-    # Editor
-    emacs-nox
-
     # Shell & terminal
     zellij
     starship
@@ -134,6 +131,7 @@ in {
     # Custom packages
     opencode
   ] ++ lib.optionals stdenv.isLinux [
+    emacs-nox
     earlyoom
     inotify-tools
   ] ++ lib.optionals stdenv.isDarwin [
@@ -152,6 +150,8 @@ in {
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
+  ] ++ lib.optionals pkgs.stdenv.isDarwin [
+    "/Applications/Emacs.app/Contents/MacOS/bin"
   ];
 
   # ── Fish shell ──────────────────────────────────────────────────────
@@ -182,8 +182,8 @@ in {
   # Symlink fish support files (functions only — fish_plugins is left
   # unmanaged so Fisher can write to it after plugin installs)
   xdg.configFile = {
-    "fish/functions/fisher.fish".source = ./config/fish/functions/fisher.fish;
-    "fish/functions/zlast.fish".source = ./config/fish/functions/zlast.fish;
+    "fish/functions/fisher.fish" = { source = ./config/fish/functions/fisher.fish; force = true; };
+    "fish/functions/zlast.fish" = { source = ./config/fish/functions/zlast.fish; force = true; };
   };
 
   # Seed fish_plugins on first run only (Fisher owns it after that)
@@ -220,44 +220,51 @@ in {
   };
 
   # Codeberg conditional config (raw file, referenced by includes above)
-  xdg.configFile."git/codeberg".source = ./config/git/codeberg;
+  xdg.configFile."git/codeberg" = { source = ./config/git/codeberg; force = true; };
 
   # ── Emacs ───────────────────────────────────────────────────────────
   # Emacs config uses Elpaca for package management, so we just symlink
   # the config files. minimal-emacs.d is a flake input.
 
-  xdg.configFile."emacs/early-init.el".source = "${minimal-emacs}/early-init.el";
-  xdg.configFile."emacs/init.el".source = "${minimal-emacs}/init.el";
-  xdg.configFile."emacs/pre-early-init.el".source = ./config/emacs/pre-early-init.el;
-  xdg.configFile."emacs/pre-init.el".source = ./config/emacs/pre-init.el;
-  xdg.configFile."emacs/post-init.el".source = ./config/emacs/post-init.el;
-  xdg.configFile."emacs/elpaca-lock.el".source = ./config/emacs/elpaca-lock.el;
+  xdg.configFile."emacs/early-init.el" = { source = "${minimal-emacs}/early-init.el"; force = true; };
+  xdg.configFile."emacs/init.el" = { source = "${minimal-emacs}/init.el"; force = true; };
+  xdg.configFile."emacs/pre-early-init.el" = { source = ./config/emacs/pre-early-init.el; force = true; };
+  xdg.configFile."emacs/pre-init.el" = { source = ./config/emacs/pre-init.el; force = true; };
+  xdg.configFile."emacs/post-init.el" = { source = ./config/emacs/post-init.el; force = true; };
+  xdg.configFile."emacs/elpaca-lock.el" = { source = ./config/emacs/elpaca-lock.el; force = true; };
 
   # ── Zellij ──────────────────────────────────────────────────────────
 
-  xdg.configFile."zellij/config.kdl".source = ./config/zellij/config.kdl;
+  xdg.configFile."zellij/config.kdl" = { source = ./config/zellij/config.kdl; force = true; };
 
   xdg.configFile."zellij/layouts" = {
     source = ./config/zellij/layouts;
     recursive = true;
+    force = true;
   };
 
   xdg.configFile."zellij/themes" = {
     source = ./config/zellij/themes;
     recursive = true;
+    force = true;
   };
 
   # Zellij plugins (zjstatus from derivation, emacs-session from local wasm)
-  xdg.configFile."zellij/plugins/zjstatus.wasm".source =
-    "${zjstatus}/share/zellij/plugins/zjstatus.wasm";
-  xdg.configFile."zellij/plugins/zellij-emacs-session.wasm".source =
-    ./zellij-emacs-session/zellij-emacs-session.wasm;
+  xdg.configFile."zellij/plugins/zjstatus.wasm" = {
+    source = "${zjstatus}/share/zellij/plugins/zjstatus.wasm";
+    force = true;
+  };
+  xdg.configFile."zellij/plugins/zellij-emacs-session.wasm" = {
+    source = ./zellij-emacs-session/zellij-emacs-session.wasm;
+    force = true;
+  };
 
   # ── User scripts (~/bin/) ───────────────────────────────────────────
 
   home.file."bin/watch-theme-zellij.sh" = {
     source = ./config/bin/watch-theme-zellij.sh;
     executable = true;
+    force = true;
   };
 
   # ── Systemd user services (Linux only) ──────────────────────────────
@@ -306,7 +313,7 @@ in {
   launchd.agents.emacs-daemon = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
     config = {
-      ProgramArguments = [ "${pkgs.emacs-nox}/bin/emacs" "--fg-daemon" ];
+      ProgramArguments = [ "/Applications/Emacs.app/Contents/MacOS/Emacs" "--fg-daemon" ];
       KeepAlive = true;
       RunAtLoad = true;
     };
