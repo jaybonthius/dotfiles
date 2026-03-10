@@ -2063,6 +2063,37 @@ redundant static file server on a random port."
   (define-key org-mode-map (kbd "C-c C-v h") #'jb-org-preview-start))
 
 ;;; ============================================================================
+;;; AI: OpenCode agent interface
+;;; ============================================================================
+
+;; plz: HTTP library (required by opencode).
+(use-package plz
+  :ensure t
+  :defer t)
+
+;; plz-event-source: SSE client (required by opencode).
+(use-package plz-event-source
+  :ensure t
+  :defer t)
+
+;; plz-media-type: HTTP content negotiation (required by opencode).
+(use-package plz-media-type
+  :ensure t
+  :defer t)
+
+;; opencode: Emacs interface to the OpenCode AI coding agent.
+;; Connects to a headless OpenCode server for AI-assisted coding with
+;; full session management, conversation forking, and edit reverting.
+(use-package opencode
+  :ensure (:host codeberg :repo "sczi/opencode.el" :depth treeless)
+  :commands (opencode opencode-connect opencode-select-project
+             opencode-select-open-session opencode-visit-last-idle)
+  :bind (("C-c a o" . opencode)
+         ("C-c a p" . opencode-select-project)
+         ("C-c a s" . opencode-select-open-session)
+         ("C-c a i" . opencode-visit-last-idle)))
+
+;;; ============================================================================
 ;;; Load custom.el
 ;;; ============================================================================
 

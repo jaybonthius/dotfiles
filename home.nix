@@ -296,11 +296,6 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
     force = true;
   };
-  xdg.configFile."emacs/elpaca-lock.el" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/elpaca-lock.el";
-    force = true;
-  };
-
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
