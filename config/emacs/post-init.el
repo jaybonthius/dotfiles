@@ -2066,32 +2066,38 @@ redundant static file server on a random port."
 ;;; AI: OpenCode agent interface
 ;;; ============================================================================
 
-;; plz: HTTP library (required by opencode).
-(use-package plz
+;; agent-shell: native Emacs buffer to interact with LLM agents via ACP.
+;; Used here with the OpenCode agent (`opencode acp`).
+;; Dependencies (shell-maker, acp) are pulled automatically from MELPA.
+(use-package agent-shell
   :ensure t
-  :defer t)
-
-;; plz-event-source: SSE client (required by opencode).
-(use-package plz-event-source
-  :ensure t
-  :defer t)
-
-;; plz-media-type: HTTP content negotiation (required by opencode).
-(use-package plz-media-type
-  :ensure t
-  :defer t)
-
-;; opencode: Emacs interface to the OpenCode AI coding agent.
-;; Connects to a headless OpenCode server for AI-assisted coding with
-;; full session management, conversation forking, and edit reverting.
-(use-package opencode
-  :ensure (:host codeberg :repo "sczi/opencode.el" :depth treeless)
-  :commands (opencode opencode-connect opencode-select-project
-             opencode-select-open-session opencode-visit-last-idle)
-  :bind (("C-c a o" . opencode)
-         ("C-c a p" . opencode-select-project)
-         ("C-c a s" . opencode-select-open-session)
-         ("C-c a i" . opencode-visit-last-idle)))
+  :commands (agent-shell
+             agent-shell-opencode-start-agent
+             agent-shell-send-region
+             agent-shell-send-current-file)
+  :bind (("C-c a a" . agent-shell)
+         ("C-c a c" . agent-shell-opencode-start-agent))
+  :custom
+  (agent-shell-opencode-authentication
+   (agent-shell-opencode-make-authentication :none t))
+  (agent-shell-preferred-agent-config
+   (agent-shell-opencode-make-agent-config))
+  :config
+  (defun my/agent-shell-send-file-fallback (orig-fn &optional prompt-for-file pick-shell)
+    "Fall back to `read-file-name' when no project files are available."
+    (if (and (or (derived-mode-p 'agent-shell-mode) prompt-for-file)
+             (not (agent-shell--project-files)))
+        (let* ((file (read-file-name "Send file: "))
+               (shell-buffer (when pick-shell
+                               (completing-read "Send file to shell: "
+                                                (mapcar #'buffer-name
+                                                        (or (agent-shell-buffers)
+                                                            (user-error "No shells available")))
+                                                nil t))))
+          (agent-shell-insert :text (agent-shell--get-files-context :files (list file))
+                              :shell-buffer shell-buffer))
+      (funcall orig-fn prompt-for-file pick-shell)))
+  (advice-add 'agent-shell-send-file :around #'my/agent-shell-send-file-fallback))
 
 ;;; ============================================================================
 ;;; Load custom.el
