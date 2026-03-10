@@ -59,6 +59,18 @@
   :ensure t
   :bind ("M-w" . clipetty-kill-ring-save))
 
+;; eat: Emulate A Terminal — fast terminal emulator inside Emacs.
+;; Launches Fish by default.  Meow is disabled in eat buffers so
+;; terminal keys pass through; press s-m to toggle meow back on.
+(use-package eat
+  :ensure t
+  :commands (eat eat-project)
+  :custom
+  (eat-shell (executable-find "fish"))
+  (eat-term-name "xterm-256color")
+  :config
+  (add-hook 'eat-mode-hook (lambda () (meow-mode -1))))
+
 ;; Terminal mouse support.
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
