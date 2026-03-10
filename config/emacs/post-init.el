@@ -132,7 +132,8 @@ with clickable error locations."
    '(kill-ring
      register-alist
      mark-ring global-mark-ring
-     search-ring regexp-search-ring)))
+     search-ring regexp-search-ring
+     easysession--current-session-name)))
 
 ;; Save-place: remember last cursor position in files.
 (use-package saveplace
@@ -1279,71 +1280,9 @@ When FORCE is non-nil, skip the confirmation prompt."
   (global-set-key (kbd "C-c e d") #'easysession-delete)
   (global-set-key (kbd "C-c e D") #'jb-easysession-delete-all)
 
-  ;; Zellij integration: when switching Zellij sessions, kill all
-  ;; emacsclient frames so only one client is ever active.
-  ;; The new session's emacsclient reconnects via a gated while-loop
-  ;; in the Zellij layout and triggers `jb-zellij-initial-session-setup'.
-
-  (defun jb-zellij-save-and-kill-clients ()
-    "Save current easysession and kill all client frames.
-Called by the Zellij WASM plugin when switching away from a session.
-The plugin handles the gate file write after this returns."
-    (when (bound-and-true-p easysession--current-session-name)
-      (easysession-save))
-    (dolist (frame (frame-list))
-      (when-let ((proc (frame-parameter frame 'client)))
-        (server-delete-client proc))))
-
-  (defun jb-zellij-switch-session (session-name)
-    "Switch easysession to SESSION-NAME for Zellij integration.
-Does nothing if SESSION-NAME is already the current session."
-    (let ((current (and (boundp 'easysession--current-session-name)
-                        easysession--current-session-name)))
-      (when (and (fboundp 'easysession-switch-to)
-                 (not (string= (or current "") session-name)))
-        (let ((easysession-confirm-new-session nil))
-          (easysession-switch-to session-name))
-        ;; easysession-load doesn't set session-loaded for new sessions
-        ;; that have no file on disk yet. Force it so easysession-save works.
-        (when (not (bound-and-true-p easysession--session-loaded))
-          (setq easysession--session-loaded t)))))
-
-  ;; Defer session loading: don't load a session at daemon startup.
-  ;; Instead, the first emacsclient connection determines which session
-  ;; to load based on its zellij-session frame parameter (set via -F)
-  ;; or ZELLIJ_SESSION_NAME environment variable.
-  (defun jb-zellij-initial-session-setup ()
-    "Load easysession matching the Zellij session on emacsclient frame connect."
-    (when-let* ((frame (selected-frame))
-                (zellij-session
-                 (or (frame-parameter frame 'zellij-session)
-                     (let ((env (frame-parameter frame 'environment)))
-                       (getenv-internal "ZELLIJ_SESSION_NAME" env)))))
-      (let ((current (and (boundp 'easysession--current-session-name)
-                          easysession--current-session-name)))
-        (when (not (string-empty-p zellij-session))
-          (cond
-           ;; No session loaded yet: fresh load.
-            ((null current)
-             (let ((easysession-confirm-new-session nil))
-               (easysession-load zellij-session)
-               (easysession-set-current-session-name zellij-session)
-               (setq easysession--session-loaded t)
-               (easysession-save)))
-           ;; Same session: do nothing.
-           ((string= current zellij-session)
-            nil)
-           ;; Different session: switch to it.
-           (t
-            (jb-zellij-switch-session zellij-session)))))))
-
-  (add-hook 'server-after-make-frame-hook #'jb-zellij-initial-session-setup)
-
   (defun jb-restart-emacs-daemon ()
     "Save the current easysession and restart the Emacs daemon.
-On Linux, restarts via systemd.  On macOS, restarts via launchctl.
-The Zellij editor pane's while-loop will automatically reconnect
-once the new daemon is up."
+On Linux, restarts via systemd.  On macOS, restarts via launchctl."
     (interactive)
     (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
       (when (bound-and-true-p easysession--current-session-name)
@@ -1355,12 +1294,11 @@ once the new daemon is up."
 
   (global-set-key (kbd "C-c g d") #'jb-restart-emacs-daemon)
 
-  ;; Start save-mode after elpaca finishes installing easysession, but don't
-  ;; load a session yet -- the first emacsclient frame will determine which
-  ;; session to load via ZELLIJ_SESSION_NAME.
+  ;; easysession-setup: auto-load last session on startup (or first
+  ;; emacsclient frame in daemon mode), and enable periodic saving.
   (add-hook 'elpaca-after-init-hook
             (lambda ()
-              (easysession-save-mode 1))
+              (easysession-setup))
             95))
 
 ;; easysession-scratch: persist *scratch* buffer contents across sessions.
