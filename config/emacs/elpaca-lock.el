@@ -228,6 +228,12 @@
                         :depth treeless :ref
                         "6198a7b212284600d24a72ff09b911b4f67217da" :id
                         easysession :type git))
+ (eat :source "elpaca-menu-lock-file" :recipe
+      (:package "eat" :repo ("https://codeberg.org/akib/emacs-eat" . "eat") :tar
+                "0.9.4" :host nongnu :files ("*" (:exclude ".git")) :source
+                "elpaca-menu-lock-file" :id eat :type git :protocol https
+                :inherit t :depth treeless :ref
+                "c8d54d649872bfe7b2b9f49ae5c2addbf12d3b99"))
  (elisp-refs :source "elpaca-menu-lock-file" :recipe
              (:package "elisp-refs" :repo "Wilfred/elisp-refs" :fetcher github
                        :files (:defaults (:exclude "elisp-refs-bench.el"))

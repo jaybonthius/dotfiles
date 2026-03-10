@@ -1,4 +1,10 @@
-{ config, pkgs, lib, minimal-emacs, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  minimal-emacs,
+  ...
+}:
 
 let
   # ── Detect user from environment ────────────────────────────────────
@@ -7,12 +13,15 @@ let
   envUser = builtins.getEnv "USER";
   envHome = builtins.getEnv "HOME";
 
-  username = if envUser != "" then envUser
-             else "jay";
+  username = if envUser != "" then envUser else "jay";
 
-  homeDirectory = if envHome != "" then envHome
-                  else if pkgs.stdenv.isDarwin then "/Users/${username}"
-                  else "/home/${username}";
+  homeDirectory =
+    if envHome != "" then
+      envHome
+    else if pkgs.stdenv.isDarwin then
+      "/Users/${username}"
+    else
+      "/home/${username}";
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
@@ -20,21 +29,37 @@ let
     pname = "opencode";
     version = "1.2.24";
 
-    src = let
-      platform = {
-        "x86_64-linux"    = { suffix = "linux-x64";   ext = "tar.gz"; hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4="; };
-        "aarch64-linux"   = { suffix = "linux-arm64";  ext = "tar.gz"; hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0="; };
-        "aarch64-darwin"  = { suffix = "darwin-arm64"; ext = "zip";    hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4="; };
-      }.${pkgs.stdenv.hostPlatform.system} or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");
-    in pkgs.fetchurl {
-      url = "https://github.com/anomalyco/opencode/releases/download/v${version}/opencode-${platform.suffix}.${platform.ext}";
-      hash = platform.hash;
-    };
+    src =
+      let
+        platform =
+          {
+            "x86_64-linux" = {
+              suffix = "linux-x64";
+              ext = "tar.gz";
+              hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4=";
+            };
+            "aarch64-linux" = {
+              suffix = "linux-arm64";
+              ext = "tar.gz";
+              hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0=";
+            };
+            "aarch64-darwin" = {
+              suffix = "darwin-arm64";
+              ext = "zip";
+              hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4=";
+            };
+          }
+          .${pkgs.stdenv.hostPlatform.system}
+            or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");
+      in
+      pkgs.fetchurl {
+        url = "https://github.com/anomalyco/opencode/releases/download/v${version}/opencode-${platform.suffix}.${platform.ext}";
+        hash = platform.hash;
+      };
 
     sourceRoot = ".";
 
-    nativeBuildInputs = [ pkgs.makeWrapper ]
-      ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.unzip ];
+    nativeBuildInputs = [ pkgs.makeWrapper ] ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.unzip ];
 
     dontStrip = true;
     dontPatchELF = true;
@@ -46,18 +71,24 @@ let
       runHook postInstall
     '';
 
-    postFixup = lib.optionalString pkgs.stdenv.isLinux ''
-      makeWrapper $out/bin/.opencode-unwrapped $out/bin/opencode \
-        --set LD_LIBRARY_PATH "${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
-    '' + lib.optionalString pkgs.stdenv.isDarwin ''
-      mv $out/bin/.opencode-unwrapped $out/bin/opencode
-    '';
+    postFixup =
+      lib.optionalString pkgs.stdenv.isLinux ''
+        makeWrapper $out/bin/.opencode-unwrapped $out/bin/opencode \
+          --set LD_LIBRARY_PATH "${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
+      ''
+      + lib.optionalString pkgs.stdenv.isDarwin ''
+        mv $out/bin/.opencode-unwrapped $out/bin/opencode
+      '';
 
     meta = {
       description = "AI coding assistant for the terminal";
       homepage = "https://opencode.ai";
       license = lib.licenses.mit;
-      platforms = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
+      platforms = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
     };
   };
 
@@ -85,7 +116,8 @@ let
     };
   };
 
-in {
+in
+{
 
   home.username = username;
   home.homeDirectory = homeDirectory;
@@ -95,48 +127,52 @@ in {
 
   # ── Packages ────────────────────────────────────────────────────────
 
-  home.packages = with pkgs; [
-    # Shell & terminal
-    zellij
-    starship
-    eza
+  home.packages =
+    with pkgs;
+    [
+      # Shell & terminal
+      zellij
+      starship
+      eza
 
-    # Languages
-    go
-    gopls
-    python3
-    racket
-    typst
-    tinymist
-    templ
-    nixd
-    nixfmt-rfc-style
+      # Languages
+      go
+      gopls
+      python3
+      racket
+      typst
+      tinymist
+      templ
+      nixd
+      nixfmt-rfc-style
 
-    # Python tools
-    uv
-    ruff
+      # Python tools
+      uv
+      ruff
 
-    # Utilities
-    ripgrep
-    fzf
-    zoxide
-    git-lfs
+      # Utilities
+      ripgrep
+      fzf
+      zoxide
+      git-lfs
 
-    # Fonts
-    fira-code
+      # Fonts
+      fira-code
 
-    # Build tools
-    gcc
+      # Build tools
+      gcc
 
-    # Custom packages
-    opencode
-  ] ++ lib.optionals stdenv.isLinux [
-    emacs-nox
-    earlyoom
-    inotify-tools
-  ] ++ lib.optionals stdenv.isDarwin [
-    fswatch
-  ];
+      # Custom packages
+      opencode
+    ]
+    ++ lib.optionals stdenv.isLinux [
+      emacs-nox
+      earlyoom
+      inotify-tools
+    ]
+    ++ lib.optionals stdenv.isDarwin [
+      fswatch
+    ];
 
   # ── Environment variables ───────────────────────────────────────────
 
@@ -150,7 +186,8 @@ in {
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
-  ] ++ lib.optionals pkgs.stdenv.isDarwin [
+  ]
+  ++ lib.optionals pkgs.stdenv.isDarwin [
     "/Applications/Emacs.app/Contents/MacOS/bin"
   ];
 
@@ -180,10 +217,17 @@ in {
   };
 
   # Symlink fish support files (functions only — fish_plugins is left
-  # unmanaged so Fisher can write to it after plugin installs)
+  # unmanaged so Fisher can write to it after plugin installs).
+  # Out-of-store symlinks so edits take effect without `home-manager switch`.
   xdg.configFile = {
-    "fish/functions/fisher.fish" = { source = ./config/fish/functions/fisher.fish; force = true; };
-    "fish/functions/zlast.fish" = { source = ./config/fish/functions/zlast.fish; force = true; };
+    "fish/functions/fisher.fish" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/fisher.fish";
+      force = true;
+    };
+    "fish/functions/zlast.fish" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/zlast.fish";
+      force = true;
+    };
   };
 
   # Seed fish_plugins on first run only (Fisher owns it after that)
@@ -220,32 +264,57 @@ in {
   };
 
   # Codeberg conditional config (raw file, referenced by includes above)
-  xdg.configFile."git/codeberg" = { source = ./config/git/codeberg; force = true; };
+  xdg.configFile."git/codeberg" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/git/codeberg";
+    force = true;
+  };
 
   # ── Emacs ───────────────────────────────────────────────────────────
   # Emacs config uses Elpaca for package management, so we just symlink
   # the config files. minimal-emacs.d is a flake input.
+  #
+  # Local files use mkOutOfStoreSymlink so edits take effect on Emacs
+  # restart without needing `home-manager switch`.
 
-  xdg.configFile."emacs/early-init.el" = { source = "${minimal-emacs}/early-init.el"; force = true; };
-  xdg.configFile."emacs/init.el" = { source = "${minimal-emacs}/init.el"; force = true; };
-  xdg.configFile."emacs/pre-early-init.el" = { source = ./config/emacs/pre-early-init.el; force = true; };
-  xdg.configFile."emacs/pre-init.el" = { source = ./config/emacs/pre-init.el; force = true; };
-  xdg.configFile."emacs/post-init.el" = { source = ./config/emacs/post-init.el; force = true; };
-  xdg.configFile."emacs/elpaca-lock.el" = { source = ./config/emacs/elpaca-lock.el; force = true; };
+  xdg.configFile."emacs/early-init.el" = {
+    source = "${minimal-emacs}/early-init.el";
+    force = true;
+  };
+  xdg.configFile."emacs/init.el" = {
+    source = "${minimal-emacs}/init.el";
+    force = true;
+  };
+  xdg.configFile."emacs/pre-early-init.el" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/pre-early-init.el";
+    force = true;
+  };
+  xdg.configFile."emacs/pre-init.el" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/pre-init.el";
+    force = true;
+  };
+  xdg.configFile."emacs/post-init.el" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
+    force = true;
+  };
+  xdg.configFile."emacs/elpaca-lock.el" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/elpaca-lock.el";
+    force = true;
+  };
 
   # ── Zellij ──────────────────────────────────────────────────────────
 
-  xdg.configFile."zellij/config.kdl" = { source = ./config/zellij/config.kdl; force = true; };
+  xdg.configFile."zellij/config.kdl" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/config.kdl";
+    force = true;
+  };
 
   xdg.configFile."zellij/layouts" = {
-    source = ./config/zellij/layouts;
-    recursive = true;
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/layouts";
     force = true;
   };
 
   xdg.configFile."zellij/themes" = {
-    source = ./config/zellij/themes;
-    recursive = true;
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/themes";
     force = true;
   };
 
@@ -255,15 +324,14 @@ in {
     force = true;
   };
   xdg.configFile."zellij/plugins/zellij-emacs-session.wasm" = {
-    source = ./zellij-emacs-session/zellij-emacs-session.wasm;
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/zellij-emacs-session/zellij-emacs-session.wasm";
     force = true;
   };
 
   # ── User scripts (~/bin/) ───────────────────────────────────────────
 
   home.file."bin/watch-theme-zellij.sh" = {
-    source = ./config/bin/watch-theme-zellij.sh;
-    executable = true;
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/watch-theme-zellij.sh";
     force = true;
   };
 
@@ -298,7 +366,14 @@ in {
         Restart = "on-failure";
         RestartSec = "5s";
         Environment = [
-          "PATH=${lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.gnused pkgs.inotify-tools ]}:%h/bin"
+          "PATH=${
+            lib.makeBinPath [
+              pkgs.bash
+              pkgs.coreutils
+              pkgs.gnused
+              pkgs.inotify-tools
+            ]
+          }:%h/bin"
         ];
       };
       Install = {
@@ -313,7 +388,10 @@ in {
   launchd.agents.emacs-daemon = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
     config = {
-      ProgramArguments = [ "/Applications/Emacs.app/Contents/MacOS/Emacs" "--fg-daemon" ];
+      ProgramArguments = [
+        "/Applications/Emacs.app/Contents/MacOS/Emacs"
+        "--fg-daemon"
+      ];
       KeepAlive = true;
       RunAtLoad = true;
     };
@@ -322,11 +400,19 @@ in {
   launchd.agents.theme-watcher = lib.mkIf pkgs.stdenv.isDarwin {
     enable = true;
     config = {
-      ProgramArguments = [ "${pkgs.bash}/bin/bash" "${homeDirectory}/bin/watch-theme-zellij.sh" ];
+      ProgramArguments = [
+        "${pkgs.bash}/bin/bash"
+        "${homeDirectory}/bin/watch-theme-zellij.sh"
+      ];
       KeepAlive = true;
       RunAtLoad = true;
       EnvironmentVariables = {
-        PATH = lib.makeBinPath [ pkgs.bash pkgs.coreutils pkgs.gnused pkgs.fswatch ];
+        PATH = lib.makeBinPath [
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.gnused
+          pkgs.fswatch
+        ];
         HOME = homeDirectory;
       };
     };
