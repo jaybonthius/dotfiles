@@ -2037,6 +2037,93 @@ redundant static file server on a random port."
       (funcall orig-fn prompt-for-file pick-shell)))
   (advice-add 'agent-shell-send-file :around #'my/agent-shell-send-file-fallback))
 
+;;; gptel: LLM client for Emacs — chat, rewrite, and query from any buffer.
+;; Uses GitHub Copilot as the backend, providing access to Claude, GPT,
+;; Gemini, and other models via your Copilot subscription.
+;; First-time setup: M-x gptel-gh-login (authorizes via GitHub device flow).
+(use-package gptel
+  :ensure t
+  :commands (gptel gptel-send gptel-menu gptel-rewrite gptel-gh-login)
+  :bind (("C-c g g" . gptel)
+         ("C-c g s" . gptel-send)
+         ("C-c g m" . gptel-menu)
+         ("C-c g w" . gptel-rewrite))
+  :config
+  (setq gptel-backend (gptel-make-gh-copilot "Copilot")
+        gptel-model 'claude-opus-4.6
+        gptel-stream t
+        gptel-default-mode 'org-mode)
+
+  ;; Auto-scroll the buffer as the LLM streams its response.
+  (add-hook 'gptel-post-stream-hook 'gptel-auto-scroll)
+  ;; Move cursor to the next prompt position after the response finishes.
+  (add-hook 'gptel-post-response-functions 'gptel-end-of-response)
+  ;; Org branching: each outline path is a separate conversation fork.
+  (setq gptel-org-branching-context t))
+
+;; gptel-agent: agentic tools and sub-agents for gptel.
+;; Provides file read/write/edit, web search, Bash, and Emacs
+;; introspection tools.  Use M-x gptel-agent for a dedicated session,
+;; or include @gptel-agent in any prompt for one-shot agent capabilities.
+;; Includes plan vs agent presets: gptel-plan (read-only, planning) and
+;; gptel-agent (full read/write agent).  Switch via gptel's menu.
+(use-package gptel-agent
+  :ensure t
+  :after gptel
+  :commands (gptel-agent)
+  :bind ("C-c g A" . gptel-agent)
+  :config
+  (gptel-agent-update))
+
+(with-eval-after-load 'gptel-agent-tools
+  (defun gptel-agent--glob (pattern &optional path depth)
+    "Find files matching PATTERN using the `tree' command.
+Fixed version that includes --matchdirs so directories appear in results."
+    (when (string-empty-p pattern)
+      (error "Error: pattern must not be empty"))
+    (if path
+        (unless (and (file-readable-p path) (file-directory-p path))
+          (error "Error: path %s is not readable" path))
+      (setq path "."))
+    (unless (executable-find "tree")
+      (error "Error: Executable `tree` not found.  This tool cannot be used"))
+    (let ((full-path (expand-file-name path)))
+      (with-temp-buffer
+        (let* ((args (list "-l" "-f" "-i" "-I" ".git"
+                           "--sort=mtime" "--ignore-case"
+                           "--prune" "--matchdirs" "-P" pattern full-path))
+               (args (if (natnump depth)
+                         (nconc args (list "-L" (number-to-string depth)))
+                       args))
+               (exit-code (apply #'call-process "tree" nil t nil args)))
+          (when (/= exit-code 0)
+            (goto-char (point-min))
+            (insert (format "Glob failed with exit code %d\n.STDOUT:\n\n"
+                            exit-code))))
+        (when (> (buffer-size) 20000)
+          (let* ((temp-dir (expand-file-name "gptel-agent-temp"
+                                             (temporary-file-directory)))
+                 (temp-file (expand-file-name
+                             (format "glob-%s-%s.txt"
+                                     (format-time-string "%Y%m%d-%H%M%S")
+                                     (random 10000))
+                             temp-dir)))
+            (unless (file-directory-p temp-dir) (make-directory temp-dir t))
+            (write-region nil nil temp-file)
+            (let ((max-lines 50)
+                  (orig-size (buffer-size))
+                  (orig-lines (line-number-at-pos (point-max))))
+              (goto-char (point-min))
+              (insert (format "Glob results too large (%d chars, %d lines)\
+ for context window.\nStored in: %s\n\nFirst %d lines:\n\n"
+                              orig-size orig-lines temp-file max-lines))
+              (forward-line max-lines)
+              (delete-region (point) (point-max))
+              (goto-char (point-max))
+              (insert (format "\n\n[Use Read tool with file_path=\"%s\" to view full results]"
+                              temp-file)))))
+        (buffer-string)))))
+
 ;;; ============================================================================
 ;;; Load custom.el
 ;;; ============================================================================
