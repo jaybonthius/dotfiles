@@ -296,6 +296,15 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
     force = true;
   };
+  # ── OpenCode ────────────────────────────────────────────────────────
+  # TUI keybind overrides for running OpenCode inside Emacs eat.
+  # Leader changed from ctrl+x (intercepted by eat) to ctrl+s.
+
+  xdg.configFile."opencode/tui.json" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/opencode/tui.json";
+    force = true;
+  };
+
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
