@@ -552,6 +552,7 @@ Ensures required directories and files exist, sets up file-notify."
   :ensure t
   :after denote
   :config
+  (setq consult-denote-grep-command #'consult-ripgrep)
   (consult-denote-mode 1))
 
 ;;; denote-journal: dedicated journaling workflow.
