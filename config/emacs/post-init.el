@@ -71,6 +71,44 @@
   :config
   (add-hook 'eat-mode-hook (lambda () (meow-mode -1))))
 
+;; jb-opencode: launch the OpenCode TUI in an Eat terminal.
+;; Defined outside `use-package eat' so the function and keybinding
+;; exist at init time (eat's :config is deferred until first use).
+;; With prefix arg, uses `consult-dir' to pick the directory first
+;; via its public `consult-dir-default-command' extension point.
+(defvar consult-dir-default-command)
+
+(defun jb-opencode--in-dir ()
+  "Launch OpenCode in `default-directory' via Eat.
+Buffer is named *oc:session:dir* when an easysession is active,
+or *oc:dir* otherwise.  Intended as a `consult-dir-default-command'
+action or direct call."
+  (interactive)
+  (let* ((dir-name (file-name-nondirectory
+                    (directory-file-name default-directory)))
+         (session (and (fboundp 'easysession-get-session-name)
+                       (easysession-get-session-name)))
+         (buf-name (if session
+                       (format "*oc:%s:%s*" session dir-name)
+                     (format "*oc:%s*" dir-name)))
+         (buf (eat "opencode" t)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (rename-buffer buf-name t)))))
+
+(defun jb-opencode (arg)
+  "Launch OpenCode TUI in an Eat terminal.
+Without prefix ARG, runs in the current directory.
+With \\[universal-argument], pick the directory first via `consult-dir'
+\(projects, recent dirs, bookmarks, etc.)."
+  (interactive "P")
+  (if arg
+      (let ((consult-dir-default-command #'jb-opencode--in-dir))
+        (call-interactively #'consult-dir))
+    (jb-opencode--in-dir)))
+
+(global-set-key (kbd "C-c a o") #'jb-opencode)
+
 ;; Terminal mouse support.
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
@@ -363,7 +401,7 @@ Also re-applies the current theme."
              '(change)
              (lambda (event)
                (when (string= (file-name-nondirectory (nth 2 event))
-                               (file-name-nondirectory jb-theme-state-file))
+                              (file-name-nondirectory jb-theme-state-file))
                  (jb-theme--on-file-change event))))))
     (jb-theme-apply)))
 
@@ -931,6 +969,19 @@ takes priority and the underlying mode's keys are suppressed."
   :ensure t
   :bind (("C-x p f" . consult-project-extra-find)
          ("C-x p F" . consult-project-extra-find-other-window)))
+
+;; consult-dir: multi-source directory picker for the minibuffer.
+;; Provides quick access to current dir, project roots, recent dirs,
+;; and bookmarks via consult narrowing.  Also works inside the
+;; minibuffer (e.g. during find-file) to switch directories on the fly.
+(use-package consult-dir
+  :ensure t
+  :bind (("C-x C-d" . consult-dir)
+         :map vertico-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)))
+
+;;;; TODO: consult-dir-jump-file doesn't seem to be working...
 
 ;;; ============================================================================
 ;;; Completion (in-buffer): Corfu + Cape
@@ -2071,6 +2122,27 @@ redundant static file server on a random port."
   :bind ("C-c g A" . gptel-agent)
   :config
   (gptel-agent-update))
+
+;; plz: HTTP library required by opencode.el and its dependencies.
+(use-package plz
+  :ensure t)
+
+;; opencode: native Emacs UI for the OpenCode AI coding agent.
+;; Provides a comint-based chat interface, session management, project
+;; scoping, diff review, and notification support — all inside Emacs
+;; buffers rather than a TUI.  Connects to an opencode server via HTTP.
+;; Dependencies (plz-media-type, plz-event-source) are pulled transitively.
+(use-package opencode
+  :ensure (:host codeberg :repo "sczi/opencode.el")
+  :commands (opencode
+             opencode-connect
+             opencode-select-project
+             opencode-new-session
+             opencode-new-worktree
+             opencode-select-idle
+             opencode-visit-last-idle)
+  :bind (("C-c a O" . opencode)
+         ("C-c a P" . opencode-select-project)))
 
 (with-eval-after-load 'gptel-agent-tools
   (defun gptel-agent--glob (pattern &optional path depth)
