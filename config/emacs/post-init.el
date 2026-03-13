@@ -117,6 +117,14 @@ With \\[universal-argument], pick the directory first via `consult-dir'
 
 (global-set-key (kbd "C-c a ~") #'jb-opencode-home)
 
+(defun jb-opencode-dir ()
+  "Launch OpenCode in a directory chosen via `read-directory-name'."
+  (interactive)
+  (let ((default-directory (read-directory-name "OpenCode directory: ")))
+    (jb-opencode--in-dir)))
+
+(global-set-key (kbd "C-c a d") #'jb-opencode-dir)
+
 ;; Terminal mouse support.
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
