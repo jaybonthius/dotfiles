@@ -153,6 +153,7 @@ in
       # Utilities
       ripgrep
       fzf
+      jq
       zoxide
       git-lfs
 
@@ -305,6 +306,14 @@ in
     force = true;
   };
 
+  # Base config (personal/non-secret settings). Merged with
+  # config.local.json (work secrets, gitignored) at activation time
+  # to produce the final config.json.
+  xdg.configFile."opencode/config.base.json" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/opencode/config.base.json";
+    force = true;
+  };
+
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
@@ -429,5 +438,45 @@ in
       run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/xterm-ghostty.ti}"
     fi
   '';
+
+  # ── OpenCode config merge (activation scripts) ─────────────────────
+  # config.base.json  — Nix-managed personal settings (xdg.configFile above)
+  # config.local.json — machine-specific / work secrets (gitignored)
+  # config.json       — deep-merged result, rewritten every activation
+
+  # Seed config.local.json once from the existing config.json's non-base
+  # keys (e.g. the cai-mcp MCP block). After seeding, the file is left
+  # alone so the user can edit it freely.
+  home.activation.seedOpenCodeLocal = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    local="$HOME/.config/opencode/config.local.json"
+    current="$HOME/.config/opencode/config.json"
+    if [ ! -f "$local" ] && [ -f "$current" ]; then
+      run mkdir -p "$HOME/.config/opencode"
+      # Extract only the mcp keys that are NOT in the base config
+      run ${pkgs.jq}/bin/jq '{mcp: (.mcp // {} | with_entries(select(.key != "context7")))}' \
+        "$current" > "$local"
+    fi
+  '';
+
+  # Merge base + local into config.json on every activation.
+  # jq's `*` operator does recursive object merge (local overrides base).
+  home.activation.mergeOpenCodeConfig =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "seedOpenCodeLocal"
+      ]
+      ''
+        base="$HOME/.config/opencode/config.base.json"
+        local="$HOME/.config/opencode/config.local.json"
+        target="$HOME/.config/opencode/config.json"
+
+        run mkdir -p "$HOME/.config/opencode"
+        if [ -f "$local" ]; then
+          run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$base" "$local" > "$target"
+        else
+          run cp "$base" "$target"
+        fi
+      '';
 
 }
