@@ -482,6 +482,9 @@ Ensures required directories and files exist, sets up file-notify."
   :config
   (auto-olivetti-mode))
 
+(dolist (hook '(org-mode-hook markdown-mode-hook))
+  (add-hook hook (lambda () (setq-local olivetti-body-width 80))))
+
 ;;; Org prettification: terminal-friendly styling.
 
 ;; org-superstar: prettify heading bullets and list markers.
