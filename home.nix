@@ -253,10 +253,12 @@ in
         email = "jaybonthius@gmail.com";
       };
       init.defaultBranch = "main";
-      include.path = "~/.config/git/local";
     };
 
     includes = [
+      {
+        path = "~/.config/git/local";
+      }
       {
         condition = "gitdir:~/Code/engineering-resume/";
         path = "~/.config/git/codeberg";
