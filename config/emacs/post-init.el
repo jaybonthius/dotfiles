@@ -1171,9 +1171,7 @@ recalculates margins for a new window geometry."
 (use-package treesit-auto
   :ensure t
   :custom
-  (treesit-auto-install t)
-  :config
-  (treesit-auto-install-all))
+  (treesit-auto-install 'prompt))
 
 (setq major-mode-remap-alist
       '((python-mode    . python-ts-mode)
