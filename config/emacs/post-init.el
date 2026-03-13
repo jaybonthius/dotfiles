@@ -1220,7 +1220,6 @@ recalculates margins for a new window geometry."
 (defvar easysession-confirm-new-session t
   "Non-nil prompts the user for confirmation when creating a new session.")
 (defvar easysession--current-session-name nil)
-(defvar easysession--session-loaded nil)
 
 (use-package easysession
   :ensure t
@@ -1265,8 +1264,8 @@ When FORCE is non-nil, skip the confirmation prompt."
 
   (define-advice easysession-switch-to (:before (&rest _) track-previous)
     "Stash current session name before switching."
-    (when (bound-and-true-p easysession--current-session-name)
-      (setq easysession-previous-session easysession--current-session-name)))
+    (when-let ((name (easysession-get-session-name)))
+      (setq easysession-previous-session name)))
 
   ;; Key mappings (C-c e prefix)
   (global-set-key (kbd "C-c e s") #'easysession-save)
@@ -1283,7 +1282,7 @@ When FORCE is non-nil, skip the confirmation prompt."
 On Linux, restarts via systemd.  On macOS, restarts via launchctl."
     (interactive)
     (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
-      (when (bound-and-true-p easysession--current-session-name)
+      (when (easysession-get-session-name)
         (easysession-save))
       (if (eq system-type 'darwin)
           (start-process "restart-emacs" nil "bash" "-c"
@@ -1362,9 +1361,9 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
   ;; before the first workspace/didChangeConfiguration clobbers it.
   (add-to-list 'eglot-server-programs
                '(typst-ts-mode . ("tinymist" "lsp"
-                                   :initializationOptions
-                                   (:formatterMode "typstyle"
-                                                   :formatterPrintWidth 80))))
+                                  :initializationOptions
+                                  (:formatterMode "typstyle"
+                                                  :formatterPrintWidth 80))))
 
   ;; Register nixd as the Nix LSP server.
   (add-to-list 'eglot-server-programs
