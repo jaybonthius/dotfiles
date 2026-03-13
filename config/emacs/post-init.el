@@ -594,12 +594,23 @@ Ensures required directories and files exist, sets up file-notify."
   :commands (persist-text-scale-mode persist-text-scale-restore)
   :hook (after-init . persist-text-scale-mode))
 
-;;; Modeline
+;;; Modeline: doom-modeline
 
-(setq line-number-mode t)
-(setq column-number-mode t)
-(setq mode-line-position-column-line-format '("%l:%C"))
-(add-hook 'after-init-hook #'display-time-mode)
+(use-package doom-modeline
+  :ensure t
+  :hook (elpaca-after-init . doom-modeline-mode)
+  :custom
+  (doom-modeline-icon nil)
+  (doom-modeline-unicode-fallback nil)
+  (doom-modeline-modal t)
+  (doom-modeline-modal-icon nil)
+  (doom-modeline-buffer-encoding 'nondefault)
+  (doom-modeline-minor-modes nil)
+  (doom-modeline-indent-info nil)
+  (doom-modeline-vcs-max-length 20)
+  (doom-modeline-check 'auto)
+  (doom-modeline-lsp t)
+  (doom-modeline-highlight-modified-buffer-name t))
 
 ;;; Line numbers: disabled in buffers.
 
