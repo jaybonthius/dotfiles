@@ -109,6 +109,14 @@ With \\[universal-argument], pick the directory first via `consult-dir'
 
 (global-set-key (kbd "C-c a o") #'jb-opencode)
 
+(defun jb-opencode-home ()
+  "Launch OpenCode in the home directory via Eat."
+  (interactive)
+  (let ((default-directory (expand-file-name "~/")))
+    (jb-opencode--in-dir)))
+
+(global-set-key (kbd "C-c a ~") #'jb-opencode-home)
+
 ;; Terminal mouse support.
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
