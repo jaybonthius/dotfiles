@@ -156,6 +156,7 @@ in
       jq
       zoxide
       git-lfs
+      postgresql
 
       # Fonts
       fira-code
