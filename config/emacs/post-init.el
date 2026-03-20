@@ -2088,17 +2088,24 @@ redundant static file server on a random port."
 ;; Dependencies (shell-maker, acp) are pulled automatically from MELPA.
 (use-package agent-shell
   :ensure t
+  :ensure-system-package
+  (claude-agent-acp . "npm install -g @zed-industries/claude-agent-acp")
   :commands (agent-shell
              agent-shell-opencode-start-agent
+             agent-shell-anthropic-start-agent
              agent-shell-send-region
              agent-shell-send-current-file)
   :bind (("C-c a a" . agent-shell)
-         ("C-c a c" . agent-shell-opencode-start-agent))
+         ("C-c a c" . agent-shell-opencode-start-agent)
+         ("C-c a A" . agent-shell-anthropic-start-agent))
   :custom
   (agent-shell-opencode-authentication
    (agent-shell-opencode-make-authentication :none t))
+  (agent-shell-anthropic-authentication
+   (agent-shell-anthropic-make-authentication :login t))
+  (agent-shell-anthropic-default-model-id "claude-opus-4-6")
   (agent-shell-preferred-agent-config
-   (agent-shell-opencode-make-agent-config))
+   (agent-shell-anthropic-make-claude-code-config))
   :config
   (defun my/agent-shell-send-file-fallback (orig-fn &optional prompt-for-file pick-shell)
     "Fall back to `read-file-name' when no project files are available."
