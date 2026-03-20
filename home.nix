@@ -27,7 +27,7 @@ let
 
   opencode = pkgs.stdenv.mkDerivation rec {
     pname = "opencode";
-    version = "1.2.24";
+    version = "1.2.27";
 
     src =
       let
@@ -36,17 +36,17 @@ let
             "x86_64-linux" = {
               suffix = "linux-x64";
               ext = "tar.gz";
-              hash = "sha256-IGRO9rhZdfC0nD6hMcjUnN7oVEGbO4z7JEduAXh6hx4=";
+              hash = "sha256-b+OCCxRYV/f/UH0oJgWLes8fzoJY3vFJhGjdQ4Ceaeg=";
             };
             "aarch64-linux" = {
               suffix = "linux-arm64";
               ext = "tar.gz";
-              hash = "sha256-WFB7mMKQL9gZudJjlZTuxPNuVwjxFLoCixw+h3u15H0=";
+              hash = "sha256-vNkaPr6UgP+xcC5ccRaNRRFQQhrMmcbRq/XtxeLLOfU=";
             };
             "aarch64-darwin" = {
               suffix = "darwin-arm64";
               ext = "zip";
-              hash = "sha256-hYRnFVlDwQMIFQR8vaL9UHTRupMJoA5d1FhaGbPEiW4=";
+              hash = "sha256-+mgPp5CGx1CdOiwh5JySZLgD2nwPG3gH7YQrjjcyVZc=";
             };
           }
           .${pkgs.stdenv.hostPlatform.system}
