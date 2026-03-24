@@ -317,6 +317,16 @@ in
     force = true;
   };
 
+  # ── Claude Code ─────────────────────────────────────────────────────
+  # Base config (personal/non-work settings). Merged with
+  # settings.local.json (work plugins, gitignored) at activation time
+  # to produce the final ~/.claude/settings.json.
+
+  home.file.".claude/settings.base.json" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/claude/settings.base.json";
+    force = true;
+  };
+
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
@@ -475,6 +485,48 @@ in
         target="$HOME/.config/opencode/config.json"
 
         run mkdir -p "$HOME/.config/opencode"
+        if [ -f "$local" ]; then
+          run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$base" "$local" > "$target"
+        else
+          run cp "$base" "$target"
+        fi
+      '';
+
+  # ── Claude Code config merge (activation scripts) ──────────────────
+  # settings.base.json   — Nix-managed personal plugins (home.file above)
+  # settings.local.json  — work plugins / Cox-specific (gitignored)
+  # settings.json        — deep-merged result, rewritten every activation
+
+  # Seed settings.local.json once from the existing settings.json's
+  # work-specific keys (genai-enablement plugins + extraKnownMarketplaces).
+  # After seeding, the file is left alone so the user can edit it freely.
+  home.activation.seedClaudeLocal = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    local="$HOME/.claude/settings.local.json"
+    current="$HOME/.claude/settings.json"
+    if [ ! -f "$local" ] && [ -f "$current" ]; then
+      run mkdir -p "$HOME/.claude"
+      # Extract work-specific plugins and marketplaces
+      run ${pkgs.jq}/bin/jq '{
+        enabledPlugins: (.enabledPlugins // {} | with_entries(select(.key | endswith("@genai-enablement")))),
+        extraKnownMarketplaces: (.extraKnownMarketplaces // {})
+      }' "$current" > "$local"
+    fi
+  '';
+
+  # Merge base + local into settings.json on every activation.
+  # jq's `*` operator does recursive object merge (local overrides base).
+  home.activation.mergeClaudeConfig =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "seedClaudeLocal"
+      ]
+      ''
+        base="$HOME/.claude/settings.base.json"
+        local="$HOME/.claude/settings.local.json"
+        target="$HOME/.claude/settings.json"
+
+        run mkdir -p "$HOME/.claude"
         if [ -f "$local" ]; then
           run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$base" "$local" > "$target"
         else
