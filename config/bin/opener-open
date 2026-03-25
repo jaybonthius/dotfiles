@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# opener-open — open URLs via the opener socket, falling back to xdg-open.
+# Used as a drop-in replacement for xdg-open on remote machines where the
+# opener daemon is forwarded from the local machine via SSH RemoteForward.
+set -euo pipefail
+
+OPENER_SOCK="${OPENER_SOCK:-$HOME/.opener.sock}"
+
+if [[ $# -eq 0 ]]; then
+  echo "Usage: opener-open <url>" >&2
+  exit 1
+fi
+
+url="$1"
+
+if [[ -S "$OPENER_SOCK" ]]; then
+  echo "$url" | nc -U "$OPENER_SOCK"
+else
+  # No opener socket — fall back to real xdg-open (Linux) or open (macOS).
+  if command -v xdg-open &>/dev/null; then
+    exec xdg-open "$url"
+  elif command -v open &>/dev/null; then
+    exec open "$url"
+  else
+    echo "opener-open: no opener socket and no xdg-open/open found" >&2
+    exit 1
+  fi
+fi

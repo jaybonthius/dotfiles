@@ -28,9 +28,11 @@
 
 ;; Inherit environment variables (especially PATH) from the shell on macOS.
 ;; Without this, GUI Emacs won't find tools like rg, git, node, etc.
+;; Only needed on macOS — on Linux the daemon inherits env from systemd.
 (use-package exec-path-from-shell
   :ensure t
   :defer t
+  :when (eq system-type 'darwin)
   :hook (elpaca-after-init . exec-path-from-shell-initialize))
 
 ;; macOS key modifiers: Control=Control, Option=Meta, Command=Super, Fn=Hyper.
@@ -58,6 +60,66 @@
 (use-package clipetty
   :ensure t
   :bind ("M-w" . clipetty-kill-ring-save))
+
+;; browse-url: open URLs via opener-open, which forwards to the local
+;; browser through the opener socket (SSH RemoteForward) when available,
+;; and falls back to xdg-open/open when running locally with a display.
+(setq browse-url-browser-function #'browse-url-generic
+      browse-url-generic-program (expand-file-name "~/bin/opener-open"))
+
+(defun jb-parse-git-remote-url (url)
+  "Convert a git remote URL to an HTTP URL."
+  (let ((base (if (string-match "^http" url)
+                  url
+                (replace-regexp-in-string
+                 "\\(.*\\)@\\(.*\\):\\(.*?\\)\\(\\.git\\)?$"
+                 "https://\\2/\\3"
+                 url))))
+    (replace-regexp-in-string "\\.git$" "" base)))
+
+;; Open the current file on the remote git host at the current line or
+;; selection.  Uses `gh browse' for GitHub/GHE, constructs the URL
+;; manually for Forgejo/Codeberg.
+(defun jb-browse-file-remote ()
+  "Open the current file on the remote git host at point or region."
+  (interactive)
+  (unless buffer-file-name
+    (user-error "Buffer is not visiting a file"))
+  (let* ((root (or (vc-git-root buffer-file-name)
+                   (user-error "Not in a git repository")))
+         (default-directory root)
+         (file (file-relative-name buffer-file-name root))
+         (branch (or (ignore-errors
+                       (string-trim
+                        (shell-command-to-string "git symbolic-ref --short HEAD")))
+                     (string-trim
+                      (shell-command-to-string "git rev-parse HEAD"))))
+         (remote-url (string-trim
+                      (shell-command-to-string "git config remote.origin.url")))
+         (line (line-number-at-pos (if (use-region-p) (region-beginning) (point))))
+         (end-line (when (use-region-p)
+                     (line-number-at-pos (1- (region-end)))))
+         (process-environment
+          (cons (concat "BROWSER=" (expand-file-name "~/bin/opener-open"))
+                process-environment))
+         (line-spec (if end-line
+                        (format "%s:%d-%d" file line end-line)
+                      (format "%s:%d" file line)))
+         (buf (generate-new-buffer " *gh-output*")))
+    (unwind-protect
+        (let ((rc (call-process "gh" nil buf nil "browse" line-spec
+                                "--branch" branch)))
+          (unless (= rc 0)
+            (let* ((base-url (jb-parse-git-remote-url remote-url))
+                   (anchor (if end-line
+                               (format "#L%d-L%d" line end-line)
+                             (format "#L%d" line)))
+                   (url (format "%s/src/branch/%s/%s%s"
+                                base-url branch file anchor)))
+              (browse-url url))))
+      (kill-buffer buf))))
+
+(global-set-key (kbd "C-c g o") #'jb-browse-file-remote)
 
 ;; eat: Emulate A Terminal — fast terminal emulator inside Emacs.
 ;; Launches Fish by default.  Meow is disabled in eat buffers so
@@ -1152,7 +1214,41 @@ takes priority and the underlying mode's keys are suppressed."
   :config
   ;; Disable meow by default in magit buffers so all magit keys work
   ;; natively.  Press s-m to toggle meow on for IJKL movement.
-  (add-hook 'magit-mode-hook (lambda () (meow-mode -1))))
+  (add-hook 'magit-mode-hook (lambda () (meow-mode -1)))
+
+
+  (defun jb-magit-open-repo ()
+    "Open the remote origin repo URL in a browser."
+    (interactive)
+    (if-let ((url (magit-get "remote" "origin" "url")))
+        (browse-url (jb-parse-git-remote-url url))
+      (user-error "No remote.origin.url configured")))
+
+  (defun jb-magit-open-pr ()
+    "Open the PR for the current branch, or create one if none exists.
+Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
+    (interactive)
+    (let ((toplevel (magit-toplevel)))
+      (unless toplevel
+        (user-error "Not in a git repository"))
+      (let* ((default-directory toplevel)
+             (process-environment
+              (cons (concat "BROWSER=" (expand-file-name "~/bin/opener-open"))
+                    process-environment))
+             (buf (generate-new-buffer " *gh-output*")))
+        (unwind-protect
+            (let ((rc (call-process "gh" nil buf nil
+                                    "pr" "view" "--web")))
+              (if (= rc 0)
+                  nil
+                (let ((output (with-current-buffer buf (buffer-string))))
+                  (if (string-match-p "none of the git remotes" output)
+                      (call-process "fj" nil nil nil "pr" "create" "--web")
+                    (call-process "gh" nil nil nil "pr" "create" "--web")))))
+          (kill-buffer buf)))))
+
+  (define-key magit-status-mode-map (kbd "o") #'jb-magit-open-repo)
+  (define-key magit-status-mode-map (kbd "O") #'jb-magit-open-pr))
 
 ;; diff-hl: highlight uncommitted changes in the gutter.
 (defun jb-diff-hl-highlight-inline (ovl type _shape)

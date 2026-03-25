@@ -157,6 +157,8 @@ in
       zoxide
       git-lfs
       postgresql
+      netcat-openbsd
+      forgejo-cli
 
       # Fonts
       fira-code
@@ -166,6 +168,7 @@ in
 
       # Custom packages
       opencode
+      opener
     ]
     ++ lib.optionals stdenv.isLinux [
       emacs-nox
@@ -201,6 +204,19 @@ in
   programs.fish = {
     enable = true;
     interactiveShellInit = builtins.readFile ./config/fish/config.fish;
+  };
+
+  # Launch fish from bash since we can't chsh without root.
+  # Only exec when bash is the login shell and we're interactive,
+  # so scripts/non-interactive sessions stay in bash.
+  programs.bash = {
+    enable = true;
+    initExtra = ''
+      if [ -z "$__FISH_LAUNCHED" ] && command -v fish &>/dev/null; then
+        export __FISH_LAUNCHED=1
+        exec fish -l
+      fi
+    '';
   };
 
   programs.starship = {
@@ -361,6 +377,11 @@ in
     force = true;
   };
 
+  home.file."bin/opener-open" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/opener-open";
+    force = true;
+  };
+
   # ── Systemd user services (Linux only) ──────────────────────────────
 
   systemd.user.services = lib.mkIf pkgs.stdenv.isLinux {
@@ -375,6 +396,9 @@ in
         ExecStart = "${pkgs.emacs-nox}/bin/emacs --fg-daemon";
         Restart = "on-failure";
         RestartSec = "3s";
+        Environment = [
+          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
+        ];
       };
       Install = {
         WantedBy = [ "default.target" ];
@@ -472,12 +496,13 @@ in
   '';
 
   # Merge base + local into config.json on every activation.
-  # jq's `*` operator does recursive object merge (local overrides base).
+  # Uses deepmerge-cli for proper recursive merge with array union.
   home.activation.mergeOpenCodeConfig =
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
         "seedOpenCodeLocal"
+        "installDeepmerge"
       ]
       ''
         base="$HOME/.config/opencode/config.base.json"
@@ -486,7 +511,13 @@ in
 
         run mkdir -p "$HOME/.config/opencode"
         if [ -f "$local" ]; then
-          run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$base" "$local" > "$target"
+          run ${pkgs.nodejs}/bin/node -e "
+            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const fs = require('fs');
+            const a = JSON.parse(fs.readFileSync('$base'));
+            const b = JSON.parse(fs.readFileSync('$local'));
+            console.log(JSON.stringify(m(a, b), null, 2));
+          " > "$target"
         else
           run cp "$base" "$target"
         fi
@@ -513,13 +544,20 @@ in
     fi
   '';
 
+  # Install deepmerge-cli globally for JSON deep merge with array union.
+  home.activation.installDeepmerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    run mkdir -p "$HOME/.npm-global"
+    run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge
+  '';
+
   # Merge base + local into settings.json on every activation.
-  # jq's `*` operator does recursive object merge (local overrides base).
+  # Uses deepmerge-cli for proper recursive merge with array union.
   home.activation.mergeClaudeConfig =
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
         "seedClaudeLocal"
+        "installDeepmerge"
       ]
       ''
         base="$HOME/.claude/settings.base.json"
@@ -528,7 +566,13 @@ in
 
         run mkdir -p "$HOME/.claude"
         if [ -f "$local" ]; then
-          run ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$base" "$local" > "$target"
+          run ${pkgs.nodejs}/bin/node -e "
+            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const fs = require('fs');
+            const a = JSON.parse(fs.readFileSync('$base'));
+            const b = JSON.parse(fs.readFileSync('$local'));
+            console.log(JSON.stringify(m(a, b), null, 2));
+          " > "$target"
         else
           run cp "$base" "$target"
         fi
