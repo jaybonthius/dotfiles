@@ -138,6 +138,7 @@ in
       # Languages
       go
       gopls
+      nodejs
       python3
       racket
       typst
