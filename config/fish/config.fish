@@ -8,6 +8,13 @@ if not set -q COLORTERM
     set -gx COLORTERM truecolor
 end
 
+# Keep a stable symlink to the current SSH agent socket so that long-running
+# processes (e.g. Emacs daemon) can always find the agent.
+if test -n "$SSH_AUTH_SOCK"; and test "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_sock"
+    mkdir -p "$HOME/.ssh"
+    ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
+end
+
 # Ensure TERM uses the xterm-ghostty terminfo entry when it gets stripped to the
 # generic xterm-color (e.g. Lima's sshd doesn't AcceptEnv TERM by default).
 # Only activates when the compiled entry actually exists.

@@ -398,6 +398,7 @@ in
         RestartSec = "3s";
         Environment = [
           "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
+          "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
         ];
       };
       Install = {
