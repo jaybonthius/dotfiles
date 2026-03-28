@@ -27,7 +27,7 @@ let
 
   opencode = pkgs.stdenv.mkDerivation rec {
     pname = "opencode";
-    version = "1.2.27";
+    version = "1.3.3";
 
     src =
       let
@@ -36,17 +36,17 @@ let
             "x86_64-linux" = {
               suffix = "linux-x64";
               ext = "tar.gz";
-              hash = "sha256-b+OCCxRYV/f/UH0oJgWLes8fzoJY3vFJhGjdQ4Ceaeg=";
+              hash = "sha256-YJzxhLraGLyiDg2AWvB90Aj4kCNsvVK0FTRt4jhk3TI=";
             };
             "aarch64-linux" = {
               suffix = "linux-arm64";
               ext = "tar.gz";
-              hash = "sha256-vNkaPr6UgP+xcC5ccRaNRRFQQhrMmcbRq/XtxeLLOfU=";
+              hash = "sha256-ocVx/JBB4fHbF0rF7sT/B48curk5J9he2pgvG8k5NKQ=";
             };
             "aarch64-darwin" = {
               suffix = "darwin-arm64";
               ext = "zip";
-              hash = "sha256-+mgPp5CGx1CdOiwh5JySZLgD2nwPG3gH7YQrjjcyVZc=";
+              hash = "sha256-UnJRRxO7lYjS6fOglADYMGwlas2CsG6e6ScEcCnqtcA=";
             };
           }
           .${pkgs.stdenv.hostPlatform.system}
@@ -191,6 +191,7 @@ in
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
+    "$HOME/.npm-global/bin"
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
     "/Applications/Emacs.app/Contents/MacOS/bin"
@@ -503,7 +504,7 @@ in
       [
         "writeBoundary"
         "seedOpenCodeLocal"
-        "installDeepmerge"
+        "installNpmGlobals"
       ]
       ''
         base="$HOME/.config/opencode/config.base.json"
@@ -545,10 +546,12 @@ in
     fi
   '';
 
-  # Install deepmerge-cli globally for JSON deep merge with array union.
-  home.activation.installDeepmerge = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  # Install npm global packages for JSON deep merge and OpenSpec.
+  # PATH must include nodejs/bin so postinstall scripts can find `node`.
+  home.activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     run mkdir -p "$HOME/.npm-global"
-    run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge
+    PATH="${pkgs.nodejs}/bin:$PATH" \
+      run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge @fission-ai/openspec@latest
   '';
 
   # Merge base + local into settings.json on every activation.
@@ -558,7 +561,7 @@ in
       [
         "writeBoundary"
         "seedClaudeLocal"
-        "installDeepmerge"
+        "installNpmGlobals"
       ]
       ''
         base="$HOME/.claude/settings.base.json"
