@@ -36,7 +36,7 @@ let
             "x86_64-linux" = {
               suffix = "linux-x64";
               ext = "tar.gz";
-              hash = "sha256-YJzxhLraGLyiDg2AWvB90Aj4kCNsvVK0FTRt4jhk3TI=";
+              hash = "sha256-krs2sW7R37CGl/0rfY99Cf38us1eW/amf00Ven9TOxM=";
             };
             "aarch64-linux" = {
               suffix = "linux-arm64";
@@ -139,6 +139,7 @@ in
       go
       gopls
       nodejs
+      pnpm
       python3
       racket
       typst
@@ -186,13 +187,14 @@ in
     COLORTERM = "truecolor";
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
+    PNPM_HOME = "$HOME/.local/share/pnpm";
   };
 
   home.sessionPath = [
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
-    "$HOME/.npm-global/bin"
+    "$HOME/.local/share/pnpm"
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
     "/Applications/Emacs.app/Contents/MacOS/bin"
@@ -515,7 +517,7 @@ in
       [
         "writeBoundary"
         "seedOpenCodeLocal"
-        "installNpmGlobals"
+        "installPnpmGlobals"
       ]
       ''
         base="$HOME/.config/opencode/config.base.json"
@@ -525,7 +527,7 @@ in
         run mkdir -p "$HOME/.config/opencode"
         if [ -f "$local" ]; then
           run ${pkgs.nodejs}/bin/node -e "
-            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const m = require('$HOME/.local/share/pnpm/global/5/node_modules/deepmerge');
             const fs = require('fs');
             const a = JSON.parse(fs.readFileSync('$base'));
             const b = JSON.parse(fs.readFileSync('$local'));
@@ -557,12 +559,14 @@ in
     fi
   '';
 
-  # Install npm global packages (deep merge, OpenSpec, pi-coding-agent).
-  # PATH must include nodejs/bin so postinstall scripts can find `node`.
-  home.activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    run mkdir -p "$HOME/.npm-global"
-    PATH="${pkgs.nodejs}/bin:$PATH" \
-      run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent
+  # Install pnpm global packages (deep merge, OpenSpec, pi-coding-agent).
+  # PATH must include nodejs/bin so postinstall scripts can find `node`,
+  # and PNPM_HOME must be on PATH for pnpm to accept global installs.
+  home.activation.installPnpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    export PNPM_HOME="$HOME/.local/share/pnpm"
+    run mkdir -p "$PNPM_HOME"
+    PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
+      run ${pkgs.pnpm}/bin/pnpm add -g deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent
   '';
 
   # ── Pi Coding Agent config merge (activation scripts) ───────────────
@@ -591,7 +595,7 @@ in
       [
         "writeBoundary"
         "seedPiLocal"
-        "installNpmGlobals"
+        "installPnpmGlobals"
       ]
       ''
         base="$HOME/.pi/agent/settings.base.json"
@@ -601,7 +605,7 @@ in
         run mkdir -p "$HOME/.pi/agent"
         if [ -f "$local" ]; then
           run ${pkgs.nodejs}/bin/node -e "
-            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const m = require('$HOME/.local/share/pnpm/global/5/node_modules/deepmerge');
             const fs = require('fs');
             const a = JSON.parse(fs.readFileSync('$base'));
             const b = JSON.parse(fs.readFileSync('$local'));
@@ -619,7 +623,7 @@ in
       [
         "writeBoundary"
         "seedClaudeLocal"
-        "installNpmGlobals"
+        "installPnpmGlobals"
       ]
       ''
         base="$HOME/.claude/settings.base.json"
@@ -629,7 +633,7 @@ in
         run mkdir -p "$HOME/.claude"
         if [ -f "$local" ]; then
           run ${pkgs.nodejs}/bin/node -e "
-            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const m = require('$HOME/.local/share/pnpm/global/5/node_modules/deepmerge');
             const fs = require('fs');
             const a = JSON.parse(fs.readFileSync('$base'));
             const b = JSON.parse(fs.readFileSync('$local'));

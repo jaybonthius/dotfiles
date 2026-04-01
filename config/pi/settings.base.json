@@ -9,7 +9,7 @@
     "npm:pi-mcp-adapter",
     "npm:latchkey",
     "npm:taskplane",
-    "npm:pi-subagents",
+    "git:github.com/HazAT/pi-interactive-subagents",
     "npm:pi-web-access",
     "npm:@mjakl/pi-dark-or-light"
   ]

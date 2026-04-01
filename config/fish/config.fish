@@ -46,3 +46,6 @@ set fzf_preview_file_cmd cat -n
 
 # Go environment (GOPATH/GOBIN set via home.sessionVariables in home.nix)
 fish_add_path $GOBIN
+
+# Force pi to use cmux as the subagent multiplexer backend
+set -gx PI_SUBAGENT_MUX cmux
