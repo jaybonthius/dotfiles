@@ -1,0 +1,16 @@
+{
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-4-6",
+  "defaultThinkingLevel": "medium",
+  "transport": "sse",
+  "theme": "dark",
+  "steeringMode": "one-at-a-time",
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:latchkey",
+    "npm:taskplane",
+    "npm:pi-subagents",
+    "npm:pi-web-access",
+    "npm:@mjakl/pi-dark-or-light"
+  ]
+}

@@ -345,6 +345,16 @@ in
     force = true;
   };
 
+  # ── Pi Coding Agent ──────────────────────────────────────────────────
+  # Base config (personal settings + packages). Merged with
+  # settings.local.json (machine-specific overrides, gitignored) at
+  # activation time to produce the final ~/.pi/agent/settings.json.
+
+  home.file.".pi/agent/settings.base.json" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
+    force = true;
+  };
+
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
@@ -547,13 +557,60 @@ in
     fi
   '';
 
-  # Install npm global packages for JSON deep merge and OpenSpec.
+  # Install npm global packages (deep merge, OpenSpec, pi-coding-agent).
   # PATH must include nodejs/bin so postinstall scripts can find `node`.
   home.activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     run mkdir -p "$HOME/.npm-global"
     PATH="${pkgs.nodejs}/bin:$PATH" \
-      run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge @fission-ai/openspec@latest
+      run ${pkgs.nodejs}/bin/npm install -g --prefix "$HOME/.npm-global" deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent
   '';
+
+  # ── Pi Coding Agent config merge (activation scripts) ───────────────
+  # settings.base.json  — Nix-managed settings + packages (home.file above)
+  # settings.local.json — machine-specific overrides (gitignored)
+  # settings.json       — deep-merged result, rewritten every activation
+
+  # Seed settings.local.json once from the existing settings.json's
+  # non-base keys. After seeding, the file is left alone so the user
+  # can edit it freely.
+  home.activation.seedPiLocal = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    local="$HOME/.pi/agent/settings.local.json"
+    current="$HOME/.pi/agent/settings.json"
+    if [ ! -f "$local" ] && [ -f "$current" ]; then
+      run mkdir -p "$HOME/.pi/agent"
+      # Extract keys that are NOT in the base config
+      run ${pkgs.jq}/bin/jq '{
+        lastChangelogVersion: .lastChangelogVersion
+      } | with_entries(select(.value != null))' "$current" > "$local"
+    fi
+  '';
+
+  # Merge base + local into settings.json on every activation.
+  home.activation.mergePiConfig =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "seedPiLocal"
+        "installNpmGlobals"
+      ]
+      ''
+        base="$HOME/.pi/agent/settings.base.json"
+        local="$HOME/.pi/agent/settings.local.json"
+        target="$HOME/.pi/agent/settings.json"
+
+        run mkdir -p "$HOME/.pi/agent"
+        if [ -f "$local" ]; then
+          run ${pkgs.nodejs}/bin/node -e "
+            const m = require('$HOME/.npm-global/lib/node_modules/deepmerge');
+            const fs = require('fs');
+            const a = JSON.parse(fs.readFileSync('$base'));
+            const b = JSON.parse(fs.readFileSync('$local'));
+            console.log(JSON.stringify(m(a, b), null, 2));
+          " > "$target"
+        else
+          run cp "$base" "$target"
+        fi
+      '';
 
   # Merge base + local into settings.json on every activation.
   # Uses deepmerge-cli for proper recursive merge with array union.
