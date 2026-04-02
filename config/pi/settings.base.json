@@ -9,8 +9,10 @@
     "npm:pi-mcp-adapter",
     "npm:latchkey",
     "npm:taskplane",
-    "git:github.com/HazAT/pi-interactive-subagents",
+    "npm:pi-subagents",
     "npm:pi-web-access",
-    "npm:@mjakl/pi-dark-or-light"
+    "npm:@mjakl/pi-dark-or-light",
+    "github.com/arpagon/pi-rewind"
+      
   ]
 }
