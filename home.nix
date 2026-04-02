@@ -148,10 +148,6 @@ in
       nixd
       nixfmt-rfc-style
 
-      # Python tools
-      uv
-      ruff
-
       # Utilities
       ripgrep
       fzf
@@ -354,6 +350,11 @@ in
 
   home.file.".pi/agent/settings.base.json" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
+    force = true;
+  };
+
+  home.file.".pi/agent/agents" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/agents";
     force = true;
   };
 
