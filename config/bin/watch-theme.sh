@@ -1,7 +1,7 @@
 #!/bin/bash
-# watch-theme-zellij.sh
-# Watches ~/.local/state/theme and updates Zellij's config.kdl theme line.
-# Zellij hot-reloads config changes automatically.
+# watch-theme.sh
+# Watches ~/.local/state/theme and updates application themes.
+# Currently handles: Zellij (config rewrite) and tmux (source-file).
 #
 # Cross-platform: uses inotifywait on Linux, fswatch on macOS.
 #
@@ -13,6 +13,7 @@
 
 THEME_FILE="$HOME/.local/state/theme"
 ZELLIJ_CONFIG="$HOME/.config/zellij/config.kdl"
+TMUX_THEMES="$HOME/.config/tmux/themes"
 
 THEME_DIR="$(dirname "$THEME_FILE")"
 ZELLIJ_DIR="$(dirname "$ZELLIJ_CONFIG")"
@@ -33,9 +34,8 @@ ensure_mutable_config() {
     fi
 }
 
-apply_theme() {
-    local mode
-    mode=$(tr -d '[:space:]' < "$THEME_FILE" 2>/dev/null)
+apply_zellij_theme() {
+    local mode="$1"
     local theme
     case "$mode" in
         light) theme="modus_operandi_Tinted" ;;
@@ -43,12 +43,29 @@ apply_theme() {
     esac
     if [[ -f "$ZELLIJ_CONFIG" ]] || [[ -L "$ZELLIJ_CONFIG" ]]; then
         ensure_mutable_config
-        # Use sed -i (GNU) syntax unconditionally. The launchd agent on macOS
-        # has GNU sed from Nix in PATH, so BSD sed -i '' would break.
-        # GNU sed -i without a suffix argument works on both platforms when
-        # GNU sed is available (guaranteed here via Nix PATH on both OS).
         sed -i "s/^theme .*/theme \"$theme\"/" "$ZELLIJ_CONFIG"
     fi
+}
+
+apply_tmux_theme() {
+    local mode="$1"
+    local variant
+    case "$mode" in
+        light) variant="operandi" ;;
+        *)     variant="vivendi" ;;
+    esac
+    local theme_file="$TMUX_THEMES/modus_${variant}_tinted.tmux"
+    # Only source if tmux server is running and theme file exists
+    if [[ -f "$theme_file" ]] && tmux list-sessions &>/dev/null; then
+        tmux source-file "$theme_file"
+    fi
+}
+
+apply_all() {
+    local mode
+    mode=$(tr -d '[:space:]' < "$THEME_FILE" 2>/dev/null)
+    apply_zellij_theme "$mode"
+    apply_tmux_theme "$mode"
 }
 
 # Ensure theme file exists
@@ -58,7 +75,7 @@ if [[ ! -f "$THEME_FILE" ]]; then
 fi
 
 # Apply on startup
-apply_theme
+apply_all
 
 # Watch for changes (platform-specific)
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -69,7 +86,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
     fswatch -0 "$THEME_DIR" "$ZELLIJ_DIR" | while read -d '' changed; do
         base="$(basename "$changed")"
         if [[ "$base" == "$THEME_BASE" || "$base" == "$ZELLIJ_BASE" ]]; then
-            apply_theme
+            apply_all
         fi
     done
 else
@@ -78,7 +95,7 @@ else
     while read -r path; do
         base="$(basename "$path")"
         if [[ "$base" == "$THEME_BASE" || "$base" == "$ZELLIJ_BASE" ]]; then
-            apply_theme
+            apply_all
         fi
     done
 fi

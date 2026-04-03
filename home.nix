@@ -131,6 +131,7 @@ in
     with pkgs;
     [
       # Shell & terminal
+      tmux
       zellij
       starship
       eza
@@ -358,6 +359,23 @@ in
     force = true;
   };
 
+  home.file.".pi/agent/extensions" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/extensions";
+    force = true;
+  };
+
+  # ── Tmux ────────────────────────────────────────────────────────────
+
+  xdg.configFile."tmux/tmux.conf" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/tmux.conf";
+    force = true;
+  };
+
+  xdg.configFile."tmux/themes" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/themes";
+    force = true;
+  };
+
   # ── Zellij ──────────────────────────────────────────────────────────
 
   xdg.configFile."zellij/config.kdl" = {
@@ -387,8 +405,8 @@ in
 
   # ── User scripts (~/bin/) ───────────────────────────────────────────
 
-  home.file."bin/watch-theme-zellij.sh" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/watch-theme-zellij.sh";
+  home.file."bin/watch-theme.sh" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/watch-theme.sh";
     force = true;
   };
 
@@ -423,12 +441,12 @@ in
 
     theme-watcher = {
       Unit = {
-        Description = "Watch theme state file and update Zellij theme";
+        Description = "Watch theme state file and update application themes";
         After = [ "default.target" ];
       };
       Service = {
         Type = "simple";
-        ExecStart = "%h/bin/watch-theme-zellij.sh";
+        ExecStart = "%h/bin/watch-theme.sh";
         Restart = "on-failure";
         RestartSec = "5s";
         Environment = [
@@ -438,6 +456,7 @@ in
               pkgs.coreutils
               pkgs.gnused
               pkgs.inotify-tools
+              pkgs.tmux
             ]
           }:%h/bin"
         ];
@@ -468,7 +487,7 @@ in
     config = {
       ProgramArguments = [
         "${pkgs.bash}/bin/bash"
-        "${homeDirectory}/bin/watch-theme-zellij.sh"
+        "${homeDirectory}/bin/watch-theme.sh"
       ];
       KeepAlive = true;
       RunAtLoad = true;
@@ -478,6 +497,7 @@ in
           pkgs.coreutils
           pkgs.gnused
           pkgs.fswatch
+          pkgs.tmux
         ];
         HOME = homeDirectory;
       };
@@ -489,6 +509,9 @@ in
   home.activation.compileTerminfo = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ -f "${./config/terminfo/xterm-ghostty.ti}" ]; then
       run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/xterm-ghostty.ti}"
+    fi
+    if [ -f "${./config/terminfo/tmux-direct.ti}" ]; then
+      run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/tmux-direct.ti}"
     fi
   '';
 
