@@ -47,5 +47,8 @@ set fzf_preview_file_cmd cat -n
 # Go environment (GOPATH/GOBIN set via home.sessionVariables in home.nix)
 fish_add_path $GOBIN
 
-# Force pi to use cmux as the subagent multiplexer backend
-set -gx PI_SUBAGENT_MUX cmux
+# Force pi to use tmux as the subagent multiplexer backend
+set -gx PI_SUBAGENT_MUX tmux
+
+# Tell subagent extension we're fish (SHELL may say /bin/bash due to tmux default-shell)
+set -gx SHELL (which fish)
