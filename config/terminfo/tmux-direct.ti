@@ -1,4 +1,6 @@
 tmux-direct|tmux with direct-color indexing,
-	use=tmux-direct,
+	use=tmux-256color,
+	colors#0x1000000,
+	pairs#0x10000,
 	setf24=\E[38\:2\:\:%p1%{65536}%/%d\:%p1%{256}%/%{255}%&%d\:%p1%{255}%&%dm,
 	setb24=\E[48\:2\:\:%p1%{65536}%/%d\:%p1%{256}%/%{255}%&%d\:%p1%{255}%&%dm,
