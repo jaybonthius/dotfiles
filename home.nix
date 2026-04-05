@@ -155,6 +155,7 @@ in
       jq
       zoxide
       git-lfs
+      difftastic
       postgresql
       netcat-openbsd
       forgejo-cli
@@ -271,6 +272,11 @@ in
         email = "jaybonthius@gmail.com";
       };
       init.defaultBranch = "main";
+      alias = {
+        dft = "-c diff.external=difft diff";
+        ds = "-c diff.external=difft show --ext-diff";
+        dl = "-c diff.external=difft log -p --ext-diff";
+      };
     };
 
     includes = [

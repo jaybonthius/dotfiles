@@ -1255,6 +1255,16 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   (define-key magit-status-mode-map (kbd "o") #'jb-magit-open-repo)
   (define-key magit-status-mode-map (kbd "O") #'jb-magit-open-pr))
 
+;; difftastic: structural diffs (via difft CLI) inside Emacs.
+;; Integrates with magit-diff, magit-blame, and dired.
+(use-package difftastic
+  :ensure t
+  :defer t)
+
+(use-package difftastic-bindings
+  :ensure difftastic
+  :config (difftastic-bindings-mode))
+
 ;; diff-hl: highlight uncommitted changes in the gutter.
 (defun jb-diff-hl-highlight-inline (ovl type _shape)
   "Highlight OVL with a colored indicator at the right edge of the left margin.
