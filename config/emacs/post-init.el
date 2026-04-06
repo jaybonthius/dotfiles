@@ -1262,7 +1262,8 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   :defer t)
 
 (use-package difftastic-bindings
-  :ensure difftastic
+  :ensure nil
+  :after difftastic
   :config (difftastic-bindings-mode))
 
 ;; diff-hl: highlight uncommitted changes in the gutter.
