@@ -12,9 +12,13 @@ function ws -d "Open a tmux session with emacs, pi, and a terminal"
 
     set -l name (test (count $argv) -ge 2; and echo $argv[2]; or basename $dir)
 
-    # Attach if session already exists
+    # Attach/switch if session already exists
     if tmux has-session -t $name 2>/dev/null
-        tmux attach-session -t $name
+        if set -q TMUX
+            tmux switch-client -t $name
+        else
+            tmux attach-session -t $name
+        end
         return
     end
 
@@ -29,7 +33,11 @@ function ws -d "Open a tmux session with emacs, pi, and a terminal"
     # Window 3: empty terminal
     tmux new-window -t $name -c $dir
 
-    # Focus emacs window and attach
+    # Focus emacs window and attach/switch
     tmux select-window -t "$name:emacs"
-    tmux attach-session -t $name
+    if set -q TMUX
+        tmux switch-client -t $name
+    else
+        tmux attach-session -t $name
+    end
 end
