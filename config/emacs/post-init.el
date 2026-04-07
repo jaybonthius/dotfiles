@@ -336,7 +336,7 @@ with clickable error locations."
   :ensure t
   :demand t
   :custom
-  (modus-themes-italic-constructs t)
+  (modus-themes-italic-constructs nil)
   (modus-themes-bold-constructs t)
   (modus-themes-mixed-fonts t)
   (modus-themes-headings
@@ -346,7 +346,44 @@ with clickable error locations."
      (t . (1.0))))
   (modus-themes-completions '((matches . (bold))
                               (selection . (semibold))))
-  (modus-themes-prompts '(bold)))
+  (modus-themes-prompts '(bold))
+  (modus-themes-common-palette-overrides
+   '((keyword      fg-main)
+     (builtin      fg-main)
+     (type         fg-main)
+     (preprocessor fg-main)
+     (variable     fg-main)
+     (variable-use fg-main)
+     (property     fg-main)
+     (fnname-call  fg-main)
+     (docmarkup    fg-main)
+     (rx-backslash fg-main)
+     (rx-construct fg-main)
+     (string       green)
+     (constant     magenta)
+     (fnname       blue)
+     (docstring    green-faint)
+     (comment      yellow-warmer)))
+  :config
+  (defun jb-modus-unbold-code-faces ()
+    (dolist (face '(font-lock-builtin-face
+                    font-lock-keyword-face
+                    font-lock-type-face
+                    font-lock-regexp-grouping-backslash
+                    font-lock-regexp-grouping-construct))
+      (set-face-attribute face nil :weight 'normal)))
+  (defun jb-modus-code-bg-highlights ()
+    (modus-themes-with-colors
+      (set-face-attribute 'font-lock-string-face nil :background bg-green-nuanced)
+      (set-face-attribute 'font-lock-constant-face nil :background bg-magenta-nuanced)
+      (set-face-attribute 'font-lock-function-name-face nil :background bg-blue-nuanced)
+      (set-face-attribute 'font-lock-doc-face nil :background bg-green-nuanced)
+      (set-face-attribute 'font-lock-comment-face nil :background bg-yellow-nuanced)))
+  (defun jb-modus-customize-code-faces ()
+    (jb-modus-unbold-code-faces)
+    (jb-modus-code-bg-highlights))
+  (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-customize-code-faces)
+  (add-hook 'enable-theme-functions (lambda (_theme) (jb-modus-customize-code-faces))))
 
 ;; Auto theme sync: watches ~/.local/state/theme for "dark"/"light" changes
 ;; written by macOS dark-notify.  Preferred theme per mode is stored in
