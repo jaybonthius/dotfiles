@@ -356,48 +356,14 @@ with clickable error locations."
   "File containing the current mode: \"dark\" or \"light\".
 Written by the macOS sync script when system appearance changes.")
 
-(defvar jb-theme-prefs-file (expand-file-name "~/.local/state/emacs-preferred-themes")
-  "File storing preferred theme names per mode.
-Format is one entry per line: \"dark:THEME-NAME\" and \"light:THEME-NAME\".")
+(defvar jb-theme-default-dark 'modus-vivendi-tinted
+  "Theme to use in dark mode.")
 
-(defvar jb-theme-default-dark 'modus-vivendi
-  "Default theme to use in dark mode when no preference is set.")
-
-(defvar jb-theme-default-light 'modus-operandi
-  "Default theme to use in light mode when no preference is set.")
+(defvar jb-theme-default-light 'modus-operandi-tinted
+  "Theme to use in light mode.")
 
 (defvar jb-theme--watch-descriptor nil
   "File-notify descriptor for the theme state file watcher.")
-
-(defun jb-theme-read-prefs ()
-  "Read preferred themes from `jb-theme-prefs-file'.
-Return an alist like ((dark . modus-vivendi) (light . modus-operandi))."
-  (let ((prefs `((dark . ,jb-theme-default-dark)
-                 (light . ,jb-theme-default-light))))
-    (when (file-exists-p jb-theme-prefs-file)
-      (with-temp-buffer
-        (insert-file-contents jb-theme-prefs-file)
-        (goto-char (point-min))
-        (while (not (eobp))
-          (let ((line (string-trim (buffer-substring-no-properties
-                                    (line-beginning-position)
-                                    (line-end-position)))))
-            (when (string-match "^\\(dark\\|light\\):\\(.+\\)$" line)
-              (let ((mode (intern (match-string 1 line)))
-                    (theme (intern (match-string 2 line))))
-                (setf (alist-get mode prefs) theme))))
-          (forward-line 1))))
-    prefs))
-
-(defun jb-theme-save-prefs (prefs)
-  "Write PREFS alist to `jb-theme-prefs-file'.
-PREFS should be an alist like ((dark . THEME) (light . THEME))."
-  (let ((dir (file-name-directory jb-theme-prefs-file)))
-    (unless (file-exists-p dir)
-      (make-directory dir t)))
-  (with-temp-file jb-theme-prefs-file
-    (dolist (entry prefs)
-      (insert (format "%s:%s\n" (car entry) (cdr entry))))))
 
 (defun jb-theme-current-mode ()
   "Return `dark' or `light' based on `jb-theme-state-file' contents.
@@ -410,11 +376,10 @@ Falls back to `dark' if the file is missing or unreadable."
     'dark))
 
 (defun jb-theme-apply ()
-  "Load the preferred theme for the current mode.
-Disables all active themes first, then loads the preferred one."
+  "Load the theme for the current mode.
+Disables all active themes first, then loads the appropriate one."
   (let* ((mode (jb-theme-current-mode))
-         (prefs (jb-theme-read-prefs))
-         (theme (alist-get mode prefs)))
+         (theme (if (eq mode 'light) jb-theme-default-light jb-theme-default-dark)))
     (mapc #'disable-theme custom-enabled-themes)
     (load-theme theme t)
     (message "Theme: %s (%s mode)" theme mode)))
@@ -431,32 +396,6 @@ EVENT is the notification event from `file-notify-add-watch'."
       ;; File was deleted (e.g. atomic replacement creates a new inode).
       ;; Re-establish the watch once the new file appears.
       (run-with-timer 0.5 nil #'jb-theme--setup-watch)))))
-
-(defun jb-set-preferred-dark-theme (theme)
-  "Set THEME as the preferred dark-mode theme.
-If currently in dark mode, switch to it immediately."
-  (interactive
-   (list (intern (completing-read "Preferred dark theme: "
-                                  (custom-available-themes) nil t))))
-  (let ((prefs (jb-theme-read-prefs)))
-    (setf (alist-get 'dark prefs) theme)
-    (jb-theme-save-prefs prefs))
-  (when (eq (jb-theme-current-mode) 'dark)
-    (jb-theme-apply))
-  (message "Preferred dark theme set to: %s" theme))
-
-(defun jb-set-preferred-light-theme (theme)
-  "Set THEME as the preferred light-mode theme.
-If currently in light mode, switch to it immediately."
-  (interactive
-   (list (intern (completing-read "Preferred light theme: "
-                                  (custom-available-themes) nil t))))
-  (let ((prefs (jb-theme-read-prefs)))
-    (setf (alist-get 'light prefs) theme)
-    (jb-theme-save-prefs prefs))
-  (when (eq (jb-theme-current-mode) 'light)
-    (jb-theme-apply))
-  (message "Preferred light theme set to: %s" theme))
 
 (defun jb-theme--setup-watch ()
   "Set up the file-notify watch for `jb-theme-state-file'.
