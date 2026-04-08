@@ -374,7 +374,7 @@ with clickable error locations."
        :weight normal)
 
       (fnname-call
-       :fg red-warmer
+       :fg fg-main
        :face font-lock-function-call-face
        :bg nil
        :weight normal)
@@ -391,6 +391,12 @@ with clickable error locations."
        :bg bg-green-nuanced
        :weight normal)
 
+      (number
+       :fg green-warmer
+       :face font-lock-number-face
+       :bg bg-green-nuanced
+       :weight normal)
+
       (constant
        :fg magenta-warmer
        :face font-lock-constant-face
@@ -404,7 +410,7 @@ with clickable error locations."
        :weight normal)
 
       (variable-use
-       :fg cyan-warmer
+       :fg fg-main
        :face font-lock-variable-use-face
        :bg nil
        :weight normal)
@@ -416,7 +422,7 @@ with clickable error locations."
        :weight normal)
 
       (property-use
-       :fg cyan-warmer
+       :fg fg-main
        :face font-lock-property-use-face
        :bg nil
        :weight normal)
