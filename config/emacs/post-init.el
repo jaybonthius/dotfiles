@@ -348,117 +348,126 @@ with clickable error locations."
                               (selection . (semibold))))
   (modus-themes-prompts '(bold))
   :config
-  (defvar jb-modus-face-colors
+  (defvar jb-modus-face-overrides
     '((keyword
        :fg fg-main
        :face font-lock-keyword-face
-       :bg nil)
+       :bg nil
+       :weight bold)
 
       (preprocessor
        :fg fg-main
        :face font-lock-preprocessor-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (builtin
        :fg fg-main
        :face font-lock-builtin-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (fnname
        :fg blue-warmer
        :face font-lock-function-name-face
-       :bg bg-blue-nuanced)
+       :bg bg-blue-nuanced
+       :weight normal)
 
       (fnname-call
        :fg fg-main
        :face font-lock-function-call-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (type
        :fg fg-main
        :face font-lock-type-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (string
        :fg green-warmer
        :face font-lock-string-face
-       :bg bg-green-nuanced)
+       :bg bg-green-nuanced
+       :weight normal)
 
       (constant
        :fg magenta-warmer
        :face font-lock-constant-face
-       :bg bg-magenta-nuanced)
+       :bg bg-magenta-nuanced
+       :weight normal)
 
       (variable
-       :fg blue-warmer
+       :fg red-warmer
        :face font-lock-variable-name-face
-       :bg bg-blue-nuanced)
+       :bg bg-red-nuanced
+       :weight normal)
 
       (variable-use
        :fg fg-main
        :face font-lock-variable-use-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (property
        :fg fg-main
        :face font-lock-property-name-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (property-use
        :fg fg-main
        :face font-lock-property-use-face
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (rx-backslash
        :fg fg-main
        :face font-lock-regexp-grouping-backslash
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (rx-construct
        :fg fg-main
        :face font-lock-regexp-grouping-construct
-       :bg nil)
+       :bg nil
+       :weight normal)
 
       (docstring
        :fg yellow-warmer
        :face font-lock-doc-face
-       :bg bg-yellow-nuanced)
+       :bg bg-yellow-nuanced
+       :weight normal)
 
       (docmarkup
        :fg yellow-warmer
        :face font-lock-doc-markup-face
-       :bg bg-yellow-nuanced)
+       :bg bg-yellow-nuanced
+       :weight normal)
 
       (comment
        :fg yellow-warmer
        :face font-lock-comment-face
-       :bg bg-yellow-nuanced)))
+       :bg bg-yellow-nuanced
+       :weight normal)))
 
   (setq modus-themes-common-palette-overrides
         (mapcar (lambda (entry) (list (car entry) (plist-get (cdr entry) :fg)))
-                jb-modus-face-colors))
+                jb-modus-face-overrides))
 
-  (defun jb-modus-unbold-code-faces ()
-    (dolist (face '(font-lock-builtin-face
-                    font-lock-keyword-face
-                    font-lock-type-face
-                    font-lock-regexp-grouping-backslash
-                    font-lock-regexp-grouping-construct))
-      (set-face-attribute face nil :weight 'normal)))
-
-  (defun jb-modus-code-bg-highlights ()
-    (dolist (entry jb-modus-face-colors)
-      (when-let* ((props (cdr entry))
-                  (face (plist-get props :face))
-                  (bg-sym (plist-get props :bg))
-                  (bg-val (modus-themes-get-color-value bg-sym)))
-        (set-face-attribute face nil :background bg-val))))
-
-  (defun jb-modus-customize-code-faces ()
-    ;; (jb-modus-unbold-code-faces)
-    (jb-modus-code-bg-highlights))
-  (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-customize-code-faces)
-  (add-hook 'enable-theme-functions (lambda (_theme) (jb-modus-customize-code-faces))))
+  (defun jb-modus-apply-face-overrides ()
+    "Apply background and weight overrides from `jb-modus-face-overrides'."
+    (dolist (entry jb-modus-face-overrides)
+      (let* ((props (cdr entry))
+             (face (plist-get props :face))
+             (bg-sym (plist-get props :bg))
+             (weight (plist-get props :weight)))
+        (when-let* ((bg-val (and bg-sym (modus-themes-get-color-value bg-sym))))
+          (set-face-attribute face nil :background bg-val))
+        (when weight
+          (set-face-attribute face nil :weight weight)))))
+  (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-apply-face-overrides)
+  (add-hook 'enable-theme-functions (lambda (_theme) (jb-modus-apply-face-overrides))))
 
 ;; Auto theme sync: watches ~/.local/state/theme for "dark"/"light" changes
 ;; written by macOS dark-notify.  Preferred theme per mode is stored in
