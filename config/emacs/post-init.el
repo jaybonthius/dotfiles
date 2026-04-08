@@ -353,13 +353,13 @@ with clickable error locations."
        :fg fg-main
        :face font-lock-keyword-face
        :bg nil
-       :weight bold)
+       :weight normal)
 
       (builtin
        :fg fg-main
        :face font-lock-builtin-face
        :bg nil
-       :weight bold)
+       :weight normal)
 
       (preprocessor
        :fg fg-main
@@ -392,21 +392,21 @@ with clickable error locations."
        :weight normal)
 
       (number
-       :fg green-warmer
+       :fg magenta-warmer
        :face font-lock-number-face
-       :bg bg-green-nuanced
+       :bg nil
        :weight normal)
 
       (constant
        :fg magenta-warmer
        :face font-lock-constant-face
-       :bg bg-magenta-nuanced
+       :bg nil
        :weight normal)
 
       (variable
        :fg cyan-warmer
        :face font-lock-variable-name-face
-       :bg bg-cyan-nuanced
+       :bg nil
        :weight normal)
 
       (variable-use
@@ -418,7 +418,7 @@ with clickable error locations."
       (property
        :fg cyan-warmer
        :face font-lock-property-name-face
-       :bg bg-cyan-nuanced
+       :bg nil
        :weight normal)
 
       (property-use
@@ -472,8 +472,27 @@ with clickable error locations."
           (set-face-attribute face nil :background bg-val))
         (when weight
           (set-face-attribute face nil :weight weight)))))
+  (defun jb-modus-dim-inner-parens ()
+    "Dim inner rainbow-delimiter faces to a blend of fg-main toward bg-main."
+    (when (and (fboundp 'modus-themes-get-color-value)
+               (facep 'rainbow-delimiters-depth-2-face))
+      (let* ((fg (color-name-to-rgb (modus-themes-get-color-value 'fg-main)))
+             (bg (color-name-to-rgb (modus-themes-get-color-value 'bg-main)))
+             (blend 0.30) ;; 25% fg, 75% bg — very subtle
+             (dim (apply #'color-rgb-to-hex
+                         (cl-mapcar (lambda (f b) (+ (* blend f) (* (- 1 blend) b)))
+                                    fg bg))))
+        (dolist (n (number-sequence 2 9))
+          (set-face-attribute
+           (intern (format "rainbow-delimiters-depth-%d-face" n))
+           nil :foreground dim)))))
+
   (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-apply-face-overrides)
-  (add-hook 'enable-theme-functions (lambda (_theme) (jb-modus-apply-face-overrides))))
+  (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-dim-inner-parens)
+  (add-hook 'enable-theme-functions
+            (lambda (_theme)
+              (jb-modus-apply-face-overrides)
+              (jb-modus-dim-inner-parens))))
 
 ;; Auto theme sync: watches ~/.local/state/theme for "dark"/"light" changes
 ;; written by macOS dark-notify.  Preferred theme per mode is stored in
@@ -2048,7 +2067,9 @@ racket-hash-lang-mode's token-based fontification."
 ;; rainbow-delimiters: colorize nested delimiters for visual depth cues.
 (use-package rainbow-delimiters
   :ensure t
-  :hook ((racket-mode racket-hash-lang-mode emacs-lisp-mode) . rainbow-delimiters-mode))
+  :hook ((racket-mode racket-hash-lang-mode emacs-lisp-mode) . rainbow-delimiters-mode)
+  :config
+  (jb-modus-dim-inner-parens))
 
 ;; Flymake backend for raco review: lint Racket source files.
 (defvar-local jb-flymake-racket-review--proc nil
