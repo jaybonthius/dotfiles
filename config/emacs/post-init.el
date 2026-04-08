@@ -1617,12 +1617,10 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
              format-all-ensure-formatter
              format-all-buffer)
   :hook ((python-ts-mode . format-all-mode)
-         (racket-mode . format-all-mode)
          (emacs-lisp-mode . format-all-mode))
   :config
   (setq-default format-all-formatters
                 '(("Python" ruff)
-                  ("Racket" raco-fmt)
                   ("Emacs Lisp" emacs-lisp))))
 
 ;;; ============================================================================
@@ -1879,12 +1877,38 @@ Produces a line like: ;; Foo ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
     (insert (format ";; %s %s\n" section suffix))))
 
 (defun jb-racket-mode-hook ()
-  "Set up Flymake with the raco-review backend for Racket buffers."
+  "Set up Flymake and format-on-save for Racket buffers."
   (add-hook 'flymake-diagnostic-functions #'jb-flymake-racket-review nil t)
-  (flymake-mode 1))
+  (flymake-mode 1)
+  (add-hook 'before-save-hook #'jb-racket-fixw-on-save nil t))
 
 ;; Register hooks immediately — these run at init time, before Elpaca
 ;; processes its queue, so they're in place when racket-mode activates.
+(defun jb-racket-fixw-on-save ()
+  "Format the current buffer using `raco fixw' (lightweight, preserves newlines).
+Intended for `before-save-hook'."
+  (when (executable-find "raco")
+    (let ((point-pos (point))
+          (win-start (window-start)))
+      (when (zerop (call-process-region (point-min) (point-max)
+                                        "raco" t t nil "fixw" "--ensure-newline-eof"))
+        (goto-char (min point-pos (point-max)))
+        (set-window-start (selected-window) (min win-start (point-max)))))))
+
+(defun jb-racket-fmt ()
+  "Format the current buffer using `raco fmt' (full reformatter)."
+  (interactive)
+  (unless (executable-find "raco")
+    (user-error "Cannot find `raco' on exec-path"))
+  (let ((point-pos (point))
+        (win-start (window-start)))
+    (if (zerop (call-process-region (point-min) (point-max)
+                                    "raco" t t nil "fmt"))
+        (progn
+          (goto-char (min point-pos (point-max)))
+          (set-window-start (selected-window) (min win-start (point-max))))
+      (user-error "raco fmt failed — see buffer for errors"))))
+
 (add-hook 'racket-mode-hook #'jb-racket-mode-hook)
 (add-hook 'racket-mode-hook #'racket-xp-mode)
 (add-hook 'racket-hash-lang-mode-hook #'racket-xp-mode)
@@ -2166,6 +2190,7 @@ REPORT-FN is the Flymake callback for reporting diagnostics."
               ("C-c C-s" . jb-insert-lisp-section)
               ("C-c r t" . racket-tidy-requires)
               ("C-c r i" . racket-add-require-for-identifier)
+              ("C-c r f" . jb-racket-fmt)
               ("C-c ."   . xref-find-definitions)
               ("C-c ,"   . xref-go-back)))
 
