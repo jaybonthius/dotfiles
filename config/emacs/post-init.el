@@ -1880,20 +1880,15 @@ Produces a line like: ;; Foo ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
   "Set up Flymake and format-on-save for Racket buffers."
   (add-hook 'flymake-diagnostic-functions #'jb-flymake-racket-review nil t)
   (flymake-mode 1)
-  (add-hook 'before-save-hook #'jb-racket-fixw-on-save nil t))
+  (add-hook 'after-save-hook #'jb-racket-fixw-on-save nil t))
 
 ;; Register hooks immediately — these run at init time, before Elpaca
 ;; processes its queue, so they're in place when racket-mode activates.
 (defun jb-racket-fixw-on-save ()
-  "Format the current buffer using `raco fixw' (lightweight, preserves newlines).
-Intended for `before-save-hook'."
-  (when (executable-find "raco")
-    (let ((point-pos (point))
-          (win-start (window-start)))
-      (when (zerop (call-process-region (point-min) (point-max)
-                                        "raco" t t nil "fixw" "--ensure-newline-eof"))
-        (goto-char (min point-pos (point-max)))
-        (set-window-start (selected-window) (min win-start (point-max)))))))
+  "Run `raco fixw' on the file after save, then revert."
+  (when (and buffer-file-name (executable-find "raco"))
+    (call-process "raco" nil nil nil "fixw" "--ensure-newline-eof" buffer-file-name)
+    (revert-buffer t t t)))
 
 (defun jb-racket-fmt ()
   "Format the current buffer using `raco fmt' (full reformatter)."
@@ -1901,13 +1896,18 @@ Intended for `before-save-hook'."
   (unless (executable-find "raco")
     (user-error "Cannot find `raco' on exec-path"))
   (let ((point-pos (point))
-        (win-start (window-start)))
-    (if (zerop (call-process-region (point-min) (point-max)
-                                    "raco" t t nil "fmt"))
-        (progn
-          (goto-char (min point-pos (point-max)))
-          (set-window-start (selected-window) (min win-start (point-max))))
-      (user-error "raco fmt failed — see buffer for errors"))))
+        (win-start (window-start))
+        (temp-buf (generate-new-buffer " *raco-fmt*")))
+    (unwind-protect
+        (if (zerop (call-process-region (point-min) (point-max)
+                                        "raco" nil temp-buf nil "fmt"))
+            (let ((formatted (with-current-buffer temp-buf (buffer-string))))
+              (erase-buffer)
+              (insert formatted)
+              (goto-char (min point-pos (point-max)))
+              (set-window-start (selected-window) (min win-start (point-max))))
+          (user-error "raco fmt failed"))
+      (kill-buffer temp-buf))))
 
 (add-hook 'racket-mode-hook #'jb-racket-mode-hook)
 (add-hook 'racket-mode-hook #'racket-xp-mode)
