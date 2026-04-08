@@ -855,21 +855,29 @@ Ensures required directories and files exist, sets up file-notify."
   :config
   (symex-mode 1)
   (lithium-define-keys symex-editing-mode
-                       (;; IJKL movement (matches Meow normal state)
-                        ("h" symex-insert-at-beginning :exit)
+                       (("h" symex-insert-at-beginning :exit)
                         ("i" symex-go-down)
                         ("j" symex-go-backward)
                         ("k" symex-go-up)
                         ("l" symex-go-forward)
-                        ;; Branch navigation
+                        ("gi" symex-previous-visual-line)
+                        ("gj" backward-char)
+                        ("gk" symex-next-visual-line)
                         ("C-i" symex-descend-branch)
                         ("C-k" symex-climb-branch)
                         ("M-i" symex-goto-lowest)
                         ("M-k" symex-goto-highest)
-                        ;; Insertion (all exit symex modal UI)
+                        ("M-j" symex-goto-first)
                         ("H" symex-insert-before :exit)
+                        ("I" symex-raise)
+                        ("J" symex-shift-backward)
+                        ("K" symex-join-lines)
                         ("A" symex-append-after :exit)
-                        ("a" symex-append-at-end :exit))))
+                        ("a" symex-append-at-end :exit)
+                        ("M-J" symex-shift-backward-most)
+                        ("C-S-j" symex-capture-backward)
+                        ("C-S-k" symex-emit-backward)
+                        ("C-S-i" symex-emit-forward))))
 
 (use-package symex-ide
   :after symex
