@@ -347,24 +347,97 @@ with clickable error locations."
   (modus-themes-completions '((matches . (bold))
                               (selection . (semibold))))
   (modus-themes-prompts '(bold))
-  (modus-themes-common-palette-overrides
-   '((keyword      fg-main)
-     (builtin      fg-main)
-     (type         fg-main)
-     (preprocessor fg-main)
-     (variable     fg-main)
-     (variable-use fg-main)
-     (property     fg-main)
-     (fnname-call  fg-main)
-     (docmarkup    fg-main)
-     (rx-backslash fg-main)
-     (rx-construct fg-main)
-     (string       green)
-     (constant     magenta)
-     (fnname       blue)
-     (docstring    green-faint)
-     (comment      yellow-warmer)))
   :config
+  (defvar jb-modus-face-colors
+    '((keyword
+       :fg fg-main
+       :face font-lock-keyword-face
+       :bg nil)
+
+      (preprocessor
+       :fg fg-main
+       :face font-lock-preprocessor-face
+       :bg nil)
+
+      (builtin
+       :fg fg-main
+       :face font-lock-builtin-face
+       :bg nil)
+
+      (fnname
+       :fg blue-warmer
+       :face font-lock-function-name-face
+       :bg bg-blue-nuanced)
+
+      (fnname-call
+       :fg fg-main
+       :face font-lock-function-call-face
+       :bg nil)
+
+      (type
+       :fg fg-main
+       :face font-lock-type-face
+       :bg nil)
+
+      (string
+       :fg green-warmer
+       :face font-lock-string-face
+       :bg bg-green-nuanced)
+
+      (constant
+       :fg magenta-warmer
+       :face font-lock-constant-face
+       :bg bg-magenta-nuanced)
+
+      (variable
+       :fg blue-warmer
+       :face font-lock-variable-name-face
+       :bg bg-blue-nuanced)
+
+      (variable-use
+       :fg fg-main
+       :face font-lock-variable-use-face
+       :bg nil)
+
+      (property
+       :fg fg-main
+       :face font-lock-property-name-face
+       :bg nil)
+
+      (property-use
+       :fg fg-main
+       :face font-lock-property-use-face
+       :bg nil)
+
+      (rx-backslash
+       :fg fg-main
+       :face font-lock-regexp-grouping-backslash
+       :bg nil)
+
+      (rx-construct
+       :fg fg-main
+       :face font-lock-regexp-grouping-construct
+       :bg nil)
+
+      (docstring
+       :fg yellow-warmer
+       :face font-lock-doc-face
+       :bg bg-yellow-nuanced)
+
+      (docmarkup
+       :fg yellow-warmer
+       :face font-lock-doc-markup-face
+       :bg bg-yellow-nuanced)
+
+      (comment
+       :fg yellow-warmer
+       :face font-lock-comment-face
+       :bg bg-yellow-nuanced)))
+
+  (setq modus-themes-common-palette-overrides
+        (mapcar (lambda (entry) (list (car entry) (plist-get (cdr entry) :fg)))
+                jb-modus-face-colors))
+
   (defun jb-modus-unbold-code-faces ()
     (dolist (face '(font-lock-builtin-face
                     font-lock-keyword-face
