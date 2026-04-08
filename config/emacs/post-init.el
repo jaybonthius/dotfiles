@@ -355,15 +355,15 @@ with clickable error locations."
        :bg nil
        :weight bold)
 
-      (preprocessor
-       :fg fg-main
-       :face font-lock-preprocessor-face
-       :bg nil
-       :weight normal)
-
       (builtin
        :fg fg-main
        :face font-lock-builtin-face
+       :bg nil
+       :weight bold)
+
+      (preprocessor
+       :fg fg-main
+       :face font-lock-preprocessor-face
        :bg nil
        :weight normal)
 
