@@ -445,15 +445,17 @@ with clickable error locations."
                     font-lock-regexp-grouping-backslash
                     font-lock-regexp-grouping-construct))
       (set-face-attribute face nil :weight 'normal)))
+
   (defun jb-modus-code-bg-highlights ()
-    (modus-themes-with-colors
-      (set-face-attribute 'font-lock-string-face nil :background bg-green-nuanced)
-      (set-face-attribute 'font-lock-constant-face nil :background bg-magenta-nuanced)
-      (set-face-attribute 'font-lock-function-name-face nil :background bg-blue-nuanced)
-      (set-face-attribute 'font-lock-doc-face nil :background bg-green-nuanced)
-      (set-face-attribute 'font-lock-comment-face nil :background bg-yellow-nuanced)))
+    (dolist (entry jb-modus-face-colors)
+      (when-let* ((props (cdr entry))
+                  (face (plist-get props :face))
+                  (bg-sym (plist-get props :bg))
+                  (bg-val (modus-themes-get-color-value bg-sym)))
+        (set-face-attribute face nil :background bg-val))))
+
   (defun jb-modus-customize-code-faces ()
-    (jb-modus-unbold-code-faces)
+    ;; (jb-modus-unbold-code-faces)
     (jb-modus-code-bg-highlights))
   (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-customize-code-faces)
   (add-hook 'enable-theme-functions (lambda (_theme) (jb-modus-customize-code-faces))))
