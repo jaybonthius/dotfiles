@@ -25,73 +25,6 @@ let
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
-  opencode = pkgs.stdenv.mkDerivation rec {
-    pname = "opencode";
-    version = "1.3.3";
-
-    src =
-      let
-        platform =
-          {
-            "x86_64-linux" = {
-              suffix = "linux-x64";
-              ext = "tar.gz";
-              hash = "sha256-krs2sW7R37CGl/0rfY99Cf38us1eW/amf00Ven9TOxM=";
-            };
-            "aarch64-linux" = {
-              suffix = "linux-arm64";
-              ext = "tar.gz";
-              hash = "sha256-ocVx/JBB4fHbF0rF7sT/B48curk5J9he2pgvG8k5NKQ=";
-            };
-            "aarch64-darwin" = {
-              suffix = "darwin-arm64";
-              ext = "zip";
-              hash = "sha256-UnJRRxO7lYjS6fOglADYMGwlas2CsG6e6ScEcCnqtcA=";
-            };
-          }
-          .${pkgs.stdenv.hostPlatform.system}
-            or (throw "opencode: unsupported system ${pkgs.stdenv.hostPlatform.system}");
-      in
-      pkgs.fetchurl {
-        url = "https://github.com/anomalyco/opencode/releases/download/v${version}/opencode-${platform.suffix}.${platform.ext}";
-        hash = platform.hash;
-      };
-
-    sourceRoot = ".";
-
-    nativeBuildInputs = [ pkgs.makeWrapper ] ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.unzip ];
-
-    dontStrip = true;
-    dontPatchELF = true;
-    dontAutoPatchelf = true;
-
-    installPhase = ''
-      runHook preInstall
-      install -Dm755 opencode $out/bin/.opencode-unwrapped
-      runHook postInstall
-    '';
-
-    postFixup =
-      lib.optionalString pkgs.stdenv.isLinux ''
-        makeWrapper $out/bin/.opencode-unwrapped $out/bin/opencode \
-          --set LD_LIBRARY_PATH "${lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
-      ''
-      + lib.optionalString pkgs.stdenv.isDarwin ''
-        mv $out/bin/.opencode-unwrapped $out/bin/opencode
-      '';
-
-    meta = {
-      description = "AI coding assistant for the terminal";
-      homepage = "https://opencode.ai";
-      license = lib.licenses.mit;
-      platforms = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "aarch64-darwin"
-      ];
-    };
-  };
-
   zjstatus = pkgs.stdenv.mkDerivation rec {
     pname = "zjstatus";
     version = "0.22.0";
@@ -112,6 +45,30 @@ let
     meta = {
       description = "Configurable statusbar plugin for zellij";
       homepage = "https://github.com/dj95/zjstatus";
+      license = lib.licenses.mit;
+    };
+  };
+
+  zellij-switch = pkgs.stdenv.mkDerivation rec {
+    pname = "zellij-switch";
+    version = "0.2.1";
+
+    src = pkgs.fetchurl {
+      url = "https://github.com/mostafaqanbaryan/zellij-switch/releases/download/${version}/zellij-switch.wasm";
+      hash = "sha256-7yV+Qf/rczN+0d6tMJlC0UZj0S2PWBcPDNq1BFsKIq4=";
+    };
+
+    dontUnpack = true;
+
+    installPhase = ''
+      runHook preInstall
+      install -Dm644 $src $out/share/zellij/plugins/zellij-switch.wasm
+      runHook postInstall
+    '';
+
+    meta = {
+      description = "Session switcher plugin for zellij";
+      homepage = "https://github.com/mostafaqanbaryan/zellij-switch";
       license = lib.licenses.mit;
     };
   };
@@ -167,7 +124,6 @@ in
       gcc
 
       # Custom packages
-      opencode
       opener
     ]
     ++ lib.optionals stdenv.isLinux [
@@ -248,6 +204,10 @@ in
       source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/zlast.fish";
       force = true;
     };
+    "fish/functions/ws.fish" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/ws.fish";
+      force = true;
+    };
   };
 
   # Seed fish_plugins on first run only (Fisher owns it after that)
@@ -323,23 +283,6 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
     force = true;
   };
-  # ── OpenCode ────────────────────────────────────────────────────────
-  # TUI keybind overrides for running OpenCode inside Emacs eat.
-  # Leader changed from ctrl+x (intercepted by eat) to ctrl+s.
-
-  xdg.configFile."opencode/tui.json" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/opencode/tui.json";
-    force = true;
-  };
-
-  # Base config (personal/non-secret settings). Merged with
-  # config.local.json (work secrets, gitignored) at activation time
-  # to produce the final config.json.
-  xdg.configFile."opencode/config.base.json" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/opencode/config.base.json";
-    force = true;
-  };
-
   # ── Claude Code ─────────────────────────────────────────────────────
   # Base config (personal/non-work settings). Merged with
   # settings.local.json (work plugins, gitignored) at activation time
@@ -399,13 +342,14 @@ in
     force = true;
   };
 
-  # Zellij plugins (zjstatus from derivation, emacs-session from local wasm)
+  # Zellij plugins (from derivations)
   xdg.configFile."zellij/plugins/zjstatus.wasm" = {
     source = "${zjstatus}/share/zellij/plugins/zjstatus.wasm";
     force = true;
   };
-  xdg.configFile."zellij/plugins/zellij-emacs-session.wasm" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/zellij-emacs-session/zellij-emacs-session.wasm";
+
+  xdg.configFile."zellij/plugins/zellij-switch.wasm" = {
+    source = "${zellij-switch}/share/zellij/plugins/zellij-switch.wasm";
     force = true;
   };
 
@@ -418,6 +362,12 @@ in
 
   home.file."bin/opener-open" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/opener-open";
+    force = true;
+  };
+
+  home.file."bin/zellij-sessionizer" = {
+    source = ./config/bin/zellij-sessionizer;
+    executable = true;
     force = true;
   };
 
@@ -520,53 +470,6 @@ in
       run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/tmux-direct.ti}"
     fi
   '';
-
-  # ── OpenCode config merge (activation scripts) ─────────────────────
-  # config.base.json  — Nix-managed personal settings (xdg.configFile above)
-  # config.local.json — machine-specific / work secrets (gitignored)
-  # config.json       — deep-merged result, rewritten every activation
-
-  # Seed config.local.json once from the existing config.json's non-base
-  # keys (e.g. the cai-mcp MCP block). After seeding, the file is left
-  # alone so the user can edit it freely.
-  home.activation.seedOpenCodeLocal = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    local="$HOME/.config/opencode/config.local.json"
-    current="$HOME/.config/opencode/config.json"
-    if [ ! -f "$local" ] && [ -f "$current" ]; then
-      run mkdir -p "$HOME/.config/opencode"
-      # Extract only the mcp keys that are NOT in the base config
-      run ${pkgs.jq}/bin/jq '{mcp: (.mcp // {} | with_entries(select(.key != "context7")))}' \
-        "$current" > "$local"
-    fi
-  '';
-
-  # Merge base + local into config.json on every activation.
-  # Uses deepmerge-cli for proper recursive merge with array union.
-  home.activation.mergeOpenCodeConfig =
-    lib.hm.dag.entryAfter
-      [
-        "writeBoundary"
-        "seedOpenCodeLocal"
-        "installPnpmGlobals"
-      ]
-      ''
-        base="$HOME/.config/opencode/config.base.json"
-        local="$HOME/.config/opencode/config.local.json"
-        target="$HOME/.config/opencode/config.json"
-
-        run mkdir -p "$HOME/.config/opencode"
-        if [ -f "$local" ]; then
-          run ${pkgs.nodejs}/bin/node -e "
-            const m = require('$HOME/.local/share/pnpm/global/5/node_modules/deepmerge');
-            const fs = require('fs');
-            const a = JSON.parse(fs.readFileSync('$base'));
-            const b = JSON.parse(fs.readFileSync('$local'));
-            console.log(JSON.stringify(m(a, b), null, 2));
-          " > "$target"
-        else
-          run cp "$base" "$target"
-        fi
-      '';
 
   # ── Claude Code config merge (activation scripts) ──────────────────
   # settings.base.json   — Nix-managed personal plugins (home.file above)

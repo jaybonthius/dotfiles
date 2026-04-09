@@ -35,12 +35,6 @@ plugins {
     filepicker location="zellij:strider" {
         cwd "/"
     }
-    emacs-session location="file:~/.config/zellij/plugins/zellij-emacs-session.wasm"
-}
-
-// Background plugins loaded on session start
-load_plugins {
-    emacs-session
 }
 
 // --- Keybindings ---
@@ -69,6 +63,28 @@ keybinds clear-defaults=true {
             LaunchOrFocusPlugin "session-manager" {
                 floating true
                 move_to_focused_tab true
+            }
+            SwitchToMode "locked"
+        }
+        bind "Super f" {
+            Run "zellij-sessionizer" "--active" {
+                close_on_exit true
+                floating true
+                x "30%"
+                y "10%"
+                width "40%"
+                height "80%"
+            }
+            SwitchToMode "locked"
+        }
+        bind "Super g" {
+            Run "zellij-sessionizer" {
+                close_on_exit true
+                floating true
+                x "30%"
+                y "10%"
+                width "40%"
+                height "80%"
             }
             SwitchToMode "locked"
         }
