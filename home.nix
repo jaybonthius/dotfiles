@@ -328,11 +328,6 @@ in
 
   # ── User scripts (~/bin/) ───────────────────────────────────────────
 
-  home.file."bin/watch-theme.sh" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/watch-theme.sh";
-    force = true;
-  };
-
   home.file."bin/opener-open" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/opener-open";
     force = true;
@@ -380,33 +375,6 @@ in
       };
     };
 
-    theme-watcher = {
-      Unit = {
-        Description = "Watch theme state file and update application themes";
-        After = [ "default.target" ];
-      };
-      Service = {
-        Type = "simple";
-        ExecStart = "%h/bin/watch-theme.sh";
-        Restart = "on-failure";
-        RestartSec = "5s";
-        Environment = [
-          "PATH=${
-            lib.makeBinPath [
-              pkgs.bash
-              pkgs.coreutils
-              pkgs.gnused
-              pkgs.inotify-tools
-              pkgs.tmux
-            ]
-          }:%h/bin"
-        ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-    };
-
   };
 
   # ── Launchd agents (macOS only) ─────────────────────────────────────
@@ -420,28 +388,6 @@ in
       ];
       KeepAlive = true;
       RunAtLoad = true;
-    };
-  };
-
-  launchd.agents.theme-watcher = lib.mkIf pkgs.stdenv.isDarwin {
-    enable = true;
-    config = {
-      ProgramArguments = [
-        "${pkgs.bash}/bin/bash"
-        "${homeDirectory}/bin/watch-theme.sh"
-      ];
-      KeepAlive = true;
-      RunAtLoad = true;
-      EnvironmentVariables = {
-        PATH = lib.makeBinPath [
-          pkgs.bash
-          pkgs.coreutils
-          pkgs.gnused
-          pkgs.fswatch
-          pkgs.tmux
-        ];
-        HOME = homeDirectory;
-      };
     };
   };
 

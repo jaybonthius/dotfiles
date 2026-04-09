@@ -3,7 +3,6 @@ set -euo pipefail
 
 LAYOUT="project"
 STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
-SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-file:$HOME/.config/zellij/plugins/zellij-smart-switch.wasm}"
 
 SESSION_NAME=""
 TARGET_DIR=""
@@ -95,10 +94,99 @@ delete_session_if_exists() {
   zellij delete-session "$SESSION_NAME" --force >/dev/null 2>&1 || true
 }
 
-build_switch_payload() {
-  local exists="$1"
-  printf 'session=%s\ncwd=%s\nlayout=%s\nexists=%s\nstate_dir=%s' \
-    "$SESSION_NAME" "" "" "$exists" "$STATE_DIR"
+save_focus_state() {
+  local session="$1"
+  local tab_position="$2"
+  local pane_token="${3:-}"
+
+  mkdir -p "$STATE_DIR"
+  {
+    echo "tab=$tab_position"
+    if [[ -n "$pane_token" ]]; then
+      echo "pane=$pane_token"
+    fi
+  } > "$STATE_DIR/$session"
+}
+
+capture_current_focus() {
+  local current_session="$1"
+  [[ -n "$current_session" ]] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+
+  local tab_json tab_position
+  tab_json="$(zellij action current-tab-info --json 2>/dev/null || true)"
+  tab_position="$(printf '%s' "$tab_json" | jq -r '.position // empty' 2>/dev/null || true)"
+  [[ -n "$tab_position" ]] || return 0
+
+  local pane_token=""
+  local panes_json
+  panes_json="$(zellij action list-panes --json --state --tab 2>/dev/null || true)"
+  if [[ -n "$panes_json" ]]; then
+    pane_token="$(printf '%s' "$panes_json" | jq -r --argjson tab "$tab_position" '
+      map(select(.tab_position == $tab and .is_focused == true))
+      | first
+      | if . == null then empty else (if .is_plugin then "plugin:" else "terminal:" end) + (.id|tostring) end
+    ' 2>/dev/null || true)"
+  fi
+
+  save_focus_state "$current_session" "$tab_position" "$pane_token"
+}
+
+load_focus_state() {
+  local session="$1"
+  local path="$STATE_DIR/$session"
+  [[ -f "$path" ]] || return 1
+
+  LOADED_TAB=""
+  LOADED_PANE=""
+
+  while IFS='=' read -r key value; do
+    case "$key" in
+      tab)  LOADED_TAB="$value" ;;
+      pane) LOADED_PANE="$value" ;;
+    esac
+  done < "$path"
+
+  [[ -n "$LOADED_TAB" || -n "$LOADED_PANE" ]]
+}
+
+pane_token_to_cli_pane_id() {
+  local token="$1"
+  case "$token" in
+    terminal:*) echo "terminal_${token#terminal:}" ;;
+    plugin:*)   echo "plugin_${token#plugin:}" ;;
+    *)          return 1 ;;
+  esac
+}
+
+switch_existing_inside() {
+  local target_session="$1"
+
+  local pane_cli_id=""
+  local tab_position=""
+
+  if load_focus_state "$target_session"; then
+    tab_position="$LOADED_TAB"
+    if [[ -n "$LOADED_PANE" ]]; then
+      pane_cli_id="$(pane_token_to_cli_pane_id "$LOADED_PANE" 2>/dev/null || true)"
+    fi
+  fi
+
+  if [[ -n "$pane_cli_id" ]]; then
+    zellij action switch-session "$target_session" --pane-id "$pane_cli_id" >/dev/null 2>&1 && return 0
+  fi
+
+  if [[ -n "$tab_position" ]]; then
+    zellij action switch-session "$target_session" --tab-position "$tab_position" >/dev/null 2>&1 && return 0
+  fi
+
+  zellij action switch-session "$target_session"
+}
+
+start_new_session() {
+  zellij -l "$LAYOUT" options \
+    --session-name "$SESSION_NAME" \
+    --default-cwd "$TARGET_DIR"
 }
 
 current_state="$(session_state "$SESSION_NAME")"
@@ -110,17 +198,18 @@ if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
 fi
 
 if [[ -n "${ZELLIJ:-}" ]]; then
-  # Inside zellij: existing session uses plugin switch (focus memory).
-  # Missing session creation uses the same command path as `ws`.
+  # Save focus for the current session before leaving it.
+  current_session_name="$(zellij ls -n 2>/dev/null | awk '/\(current\)/ { print $1; exit }')"
+  capture_current_focus "$current_session_name"
+
   if [[ "$current_state" == "none" ]]; then
     if [[ -z "$TARGET_DIR" ]]; then
       echo "zellij-session-open: cannot create missing session '$SESSION_NAME' without --dir" >&2
       exit 1
     fi
-    zellij -l "$LAYOUT" options --session-name "$SESSION_NAME" --default-cwd "$TARGET_DIR"
+    zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR"
   else
-    payload="$(build_switch_payload 1)"
-    zellij pipe --plugin "$SWITCH_PLUGIN" -- "$payload"
+    switch_existing_inside "$SESSION_NAME"
   fi
 else
   # Outside zellij: attach existing, create missing with project layout.
@@ -129,7 +218,7 @@ else
       echo "zellij-session-open: cannot create missing session '$SESSION_NAME' without --dir" >&2
       exit 1
     fi
-    zellij -l "$LAYOUT" options --session-name "$SESSION_NAME" --default-cwd "$TARGET_DIR"
+    start_new_session
   else
     zellij attach "$SESSION_NAME"
   fi

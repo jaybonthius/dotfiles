@@ -10,9 +10,8 @@ default_shell "fish"
 default_layout "project"
 theme "modus_vivendi_Tinted"
 
-// Themes are intentionally inlined for reliability and simpler theme switching.
-// Keep definitions here (instead of external theme files) unless we decide to
-// fully move back to file-based themes later.
+// Themes are intentionally inlined for reliability.
+// Default is hardcoded to modus_vivendi_Tinted.
 themes {
     modus_operandi_Tinted {
         fg "#000000"
