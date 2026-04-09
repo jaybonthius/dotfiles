@@ -1,7 +1,7 @@
 // Project layout for zellij
 // Usage: ws <directory> [session-name]
 //
-// Tab 1: emacsclient connected to the Emacs daemon
+// Tab 1: Emacs context-aware frame (project/magit when applicable)
 // Tab 2: pi coding agent
 // Tab 3: terminal
 
@@ -21,13 +21,15 @@ layout {
     }
 
     tab name="editor" focus=true {
-        pane command="emacsclient" {
-            args "-t"
+        pane command="emacs-open-context" {
+            cwd "."
         }
     }
 
     tab name="pi" {
-        pane command="pi"
+        pane command="pi" {
+            cwd "."
+        }
     }
 
     tab name="terminal" {

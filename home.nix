@@ -315,11 +315,6 @@ in
     force = true;
   };
 
-  xdg.configFile."zellij/themes" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/themes";
-    force = true;
-  };
-
   # Zellij plugins (from derivations)
   xdg.configFile."zellij/plugins/zjstatus.wasm" = {
     source = "${zjstatus}/share/zellij/plugins/zjstatus.wasm";
@@ -340,6 +335,18 @@ in
 
   home.file."bin/opener-open" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/bin/opener-open";
+    force = true;
+  };
+
+  home.file."bin/emacs-open-context" = {
+    source = ./config/bin/emacs-open-context;
+    executable = true;
+    force = true;
+  };
+
+  home.file."bin/zellij-session-open" = {
+    source = ./config/bin/zellij-session-open;
+    executable = true;
     force = true;
   };
 

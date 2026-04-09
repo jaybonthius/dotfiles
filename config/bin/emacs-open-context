@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# emacs-open-context: open an Emacs client frame scoped to a directory context.
+#
+# Usage:
+#   emacs-open-context [DIR] [INTENT]
+#
+# DIR defaults to current working directory.
+# INTENT defaults to "project".
+set -euo pipefail
+
+TARGET_DIR="${1:-$PWD}"
+INTENT="${2:-project}"
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+  echo "emacs-open-context: not a directory: $TARGET_DIR" >&2
+  exit 1
+fi
+
+if command -v realpath >/dev/null 2>&1; then
+  TARGET_DIR="$(realpath "$TARGET_DIR")"
+else
+  TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
+fi
+
+case "$INTENT" in
+  project|dired|files) ;;
+  *)
+    echo "emacs-open-context: unsupported intent '$INTENT' (expected: project|dired|files)" >&2
+    exit 1
+    ;;
+esac
+
+lisp_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/ }"
+  printf '%s' "$s"
+}
+
+ESCAPED_DIR="$(lisp_escape "$TARGET_DIR")"
+SOCKET_NAME="${EMACS_SOCKET_NAME:-server}"
+
+if [[ "$SOCKET_NAME" == */* ]]; then
+  SOCKET_ARG="$SOCKET_NAME"
+elif [[ -n "${XDG_RUNTIME_DIR:-}" && -S "$XDG_RUNTIME_DIR/emacs/$SOCKET_NAME" ]]; then
+  SOCKET_ARG="$XDG_RUNTIME_DIR/emacs/$SOCKET_NAME"
+else
+  SOCKET_ARG="$SOCKET_NAME"
+fi
+
+ELISP_EXPR="(jb-open-context \"$ESCAPED_DIR\" '$INTENT)"
+exec emacsclient -s "$SOCKET_ARG" -t --eval "$ELISP_EXPR"

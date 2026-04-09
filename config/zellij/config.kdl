@@ -8,7 +8,39 @@
 default_mode "locked"
 default_shell "fish"
 default_layout "project"
-theme "modus_vivendi"
+theme "modus_vivendi_Tinted"
+
+// Themes are intentionally inlined for reliability and simpler theme switching.
+// Keep definitions here (instead of external theme files) unless we decide to
+// fully move back to file-based themes later.
+themes {
+    modus_operandi_Tinted {
+        fg "#000000"
+        bg "#f1d5d0"
+        black "#fbf7f0"
+        red "#a60000"
+        green "#006800"
+        yellow "#6f5500"
+        blue "#0031a9"
+        magenta "#721045"
+        cyan "#005e8b"
+        white "#000000"
+        orange "#884900"
+    }
+    modus_vivendi_Tinted {
+        fg "#ffffff"
+        bg "#303a6f"
+        black "#0d0e1c"
+        red "#ff5f59"
+        green "#44bc44"
+        yellow "#d0bc00"
+        blue "#2fafff"
+        magenta "#feacd0"
+        cyan "#00d3d0"
+        white "#ffffff"
+        orange "#fec43f"
+    }
+}
 pane_frames false
 mouse_mode true
 copy_on_select true

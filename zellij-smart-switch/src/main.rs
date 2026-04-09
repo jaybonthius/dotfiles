@@ -2,25 +2,31 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use zellij_tile::prelude::*;
 
-/// A session switcher that remembers which tab was focused per session.
+/// A session switcher that remembers focused location per session.
 ///
-/// When a pipe message asks us to switch sessions, we:
-///   1. Save the current tab position (tracked via TabUpdate) to a state file
-///   2. Load the saved tab for the target session
-///   3. Call switch_session_with_focus to restore the right tab
+/// We persist:
+/// - focused tab position
+/// - focused pane id (when available)
 ///
-/// State is persisted to /tmp/zellij-tab-state/<session_name>.
-///
-/// Since pipe() may fire before ModeUpdate/TabUpdate deliver session state,
-/// we use a deferred switch: stash the request and execute once both the
-/// session name and active tab position are known.
+/// On switch we:
+///   1. Save current focus for current session
+///   2. Load saved focus for target session
+///   3. Switch sessions and restore focus
+const STATE_SUBDIR: &str = "zellij-tab-state";
+const EMERGENCY_STATE_DIR: &str = "/tmp/zellij-tab-state";
 
-const STATE_DIR: &str = "/tmp/zellij-tab-state";
+#[derive(Debug, Clone, Copy)]
+struct SavedFocus {
+    tab_position: usize,
+    pane_id: Option<(u32, bool)>, // (id, is_plugin)
+}
 
 struct SwitchRequest {
     target_session: String,
     cwd: Option<PathBuf>,
     layout: Option<String>,
+    target_exists: Option<bool>,
+    state_dir: Option<String>,
 }
 
 #[derive(Default)]
@@ -32,51 +38,168 @@ struct State {
 
 register_plugin!(State);
 
-fn save_tab_state(session: &str, tab_position: usize) {
-    let _ = std::fs::create_dir_all(STATE_DIR);
-    let path = format!("{}/{}", STATE_DIR, session);
-    let _ = std::fs::write(&path, tab_position.to_string());
+fn pane_id_to_tuple(pane_id: PaneId) -> (u32, bool) {
+    match pane_id {
+        PaneId::Terminal(id) => (id, false),
+        PaneId::Plugin(id) => (id, true),
+    }
 }
 
-fn load_tab_state(session_name: &str) -> Option<usize> {
-    let path = format!("{}/{}", STATE_DIR, session_name);
-    std::fs::read_to_string(&path).ok()?.trim().parse().ok()
+fn parse_pane_token(token: &str) -> Option<(u32, bool)> {
+    if let Some(id) = token.strip_prefix("terminal:") {
+        return id.parse::<u32>().ok().map(|pane_id| (pane_id, false));
+    }
+
+    if let Some(id) = token.strip_prefix("plugin:") {
+        return id.parse::<u32>().ok().map(|pane_id| (pane_id, true));
+    }
+
+    None
 }
 
-/// Parse a pipe payload like "--session my-project --cwd /home/user/project --layout default"
-fn parse_pipe_payload(payload: &str) -> (Option<String>, Option<PathBuf>, Option<String>) {
+fn parse_bool(value: &str) -> Option<bool> {
+    match value {
+        "1" | "true" | "True" | "TRUE" => Some(true),
+        "0" | "false" | "False" | "FALSE" => Some(false),
+        _ => None,
+    }
+}
+
+fn default_state_dir() -> String {
+    let env = get_session_environment_variables();
+
+    if let Some(state_dir) = env
+        .get("ZELLIJ_SESSIONIZER_STATE_DIR")
+        .map(String::as_str)
+        .filter(|v| !v.trim().is_empty())
+    {
+        return state_dir.to_string();
+    }
+
+    if let Some(xdg_state_home) = env
+        .get("XDG_STATE_HOME")
+        .map(String::as_str)
+        .filter(|v| !v.trim().is_empty())
+    {
+        return format!("{}/{}", xdg_state_home.trim_end_matches('/'), STATE_SUBDIR);
+    }
+
+    if let Some(home) = env
+        .get("HOME")
+        .map(String::as_str)
+        .filter(|v| !v.trim().is_empty())
+    {
+        return format!(
+            "{}/.local/state/{}",
+            home.trim_end_matches('/'),
+            STATE_SUBDIR
+        );
+    }
+
+    EMERGENCY_STATE_DIR.to_string()
+}
+
+fn save_focus_state(state_dir: &str, session: &str, focus: SavedFocus) {
+    let _ = std::fs::create_dir_all(state_dir);
+
+    let path = format!("{}/{}", state_dir, session);
+    let mut content = format!("tab={}\n", focus.tab_position);
+
+    if let Some((pane_id, is_plugin)) = focus.pane_id {
+        let pane_kind = if is_plugin { "plugin" } else { "terminal" };
+        content.push_str(&format!("pane={}:{}\n", pane_kind, pane_id));
+    }
+
+    let _ = std::fs::write(&path, content);
+}
+
+fn load_focus_state(state_dir: &str, session_name: &str) -> Option<SavedFocus> {
+    let path = format!("{}/{}", state_dir, session_name);
+    let content = std::fs::read_to_string(&path).ok()?;
+
+    let mut tab_position: Option<usize> = None;
+    let mut pane_id: Option<(u32, bool)> = None;
+
+    for line in content.lines() {
+        let Some((raw_key, raw_value)) = line.split_once('=') else {
+            continue;
+        };
+        let key = raw_key.trim();
+        let value = raw_value.trim();
+
+        match key {
+            "tab" => {
+                tab_position = value.parse::<usize>().ok();
+            }
+            "pane" => {
+                pane_id = parse_pane_token(value);
+            }
+            _ => {}
+        }
+    }
+
+    tab_position.map(|tab_position| SavedFocus {
+        tab_position,
+        pane_id,
+    })
+}
+
+/// Parse key/value payloads like:
+///   session=my-session
+///   cwd=/home/user/my project
+///   layout=project
+///   exists=1
+///   state_dir=/home/user/.local/state/zellij-tab-state
+fn parse_pipe_payload(
+    payload: &str,
+) -> (
+    Option<String>,
+    Option<PathBuf>,
+    Option<String>,
+    Option<bool>,
+    Option<String>,
+) {
     let mut session: Option<String> = None;
     let mut cwd: Option<PathBuf> = None;
     let mut layout: Option<String> = None;
+    let mut target_exists: Option<bool> = None;
+    let mut state_dir: Option<String> = None;
 
-    let parts: Vec<&str> = payload.split_whitespace().collect();
-    let mut i = 0;
-    while i < parts.len() {
-        match parts[i] {
-            "-s" | "--session" => {
-                if i + 1 < parts.len() {
-                    i += 1;
-                    session = Some(parts[i].to_string());
+    for line in payload.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+
+        match key.trim() {
+            "session" => {
+                if !value.is_empty() {
+                    session = Some(value.to_string());
                 }
             }
-            "-c" | "--cwd" => {
-                if i + 1 < parts.len() {
-                    i += 1;
-                    cwd = Some(PathBuf::from(parts[i]));
+            "cwd" => {
+                if !value.is_empty() {
+                    cwd = Some(PathBuf::from(value));
                 }
             }
-            "-l" | "--layout" => {
-                if i + 1 < parts.len() {
-                    i += 1;
-                    layout = Some(parts[i].to_string());
+            "layout" => {
+                if !value.is_empty() {
+                    layout = Some(value.to_string());
+                }
+            }
+            "exists" => {
+                target_exists = parse_bool(value);
+            }
+            "state_dir" => {
+                if !value.is_empty() {
+                    state_dir = Some(value.to_string());
                 }
             }
             _ => {}
         }
-        i += 1;
     }
 
-    (session, cwd, layout)
+    (session, cwd, layout, target_exists, state_dir)
 }
 
 impl State {
@@ -96,29 +219,59 @@ impl State {
             None => return,
         };
 
-        // Save current session's focused tab before leaving
-        if let (Some(ref current_session), Some(tab_pos)) =
-            (&self.session_name, self.active_tab_position)
-        {
-            save_tab_state(current_session, tab_pos);
+        let SwitchRequest {
+            target_session,
+            cwd,
+            layout,
+            target_exists,
+            state_dir,
+        } = request;
+
+        let state_dir = state_dir.unwrap_or_else(default_state_dir);
+
+        // Save current session focus before leaving.
+        if let Some(ref current_session) = self.session_name {
+            let pane_focus = get_focused_pane_info()
+                .ok()
+                .map(|(tab_position, pane_id)| (tab_position, pane_id_to_tuple(pane_id)));
+
+            let tab_position = self
+                .active_tab_position
+                .or_else(|| pane_focus.map(|(tab_position, _)| tab_position));
+
+            let pane_id = pane_focus.map(|(_, pane_tuple)| pane_tuple);
+
+            if let Some(tab_position) = tab_position {
+                save_focus_state(
+                    &state_dir,
+                    current_session,
+                    SavedFocus {
+                        tab_position,
+                        pane_id,
+                    },
+                );
+            }
         }
 
-        // Load saved tab for target session
-        let saved_tab = load_tab_state(&request.target_session);
+        let saved_focus = load_focus_state(&state_dir, &target_session);
 
-        if let Some(tab_position) = saved_tab {
-            // Switch with focus restoration
-            switch_session_with_focus(&request.target_session, Some(tab_position), None);
-        } else if request.layout.is_some() || request.cwd.is_some() {
-            // New session — use layout/cwd if provided
-            let layout_info = request
-                .layout
-                .map(|l| LayoutInfo::File(format!("{}.kdl", l)))
-                .unwrap_or_else(|| LayoutInfo::File("default".to_string()));
-            switch_session_with_layout(Some(&request.target_session), layout_info, request.cwd);
+        // Prefer explicit existence info from caller.
+        // Fallback to prior behavior when caller omitted it.
+        let target_exists = target_exists.unwrap_or(saved_focus.is_some());
+
+        if target_exists {
+            // Existing session — restore pane when known (falls back to tab otherwise).
+            let tab_position = saved_focus.as_ref().map(|focus| focus.tab_position);
+            let pane_id = saved_focus.and_then(|focus| focus.pane_id);
+            switch_session_with_focus(&target_session, tab_position, pane_id);
+        } else if let Some(layout_name) = layout {
+            let layout_info =
+                LayoutInfo::File(format!("{}.kdl", layout_name), LayoutMetadata::default());
+            switch_session_with_layout(Some(&target_session), layout_info, cwd);
+        } else if cwd.is_some() {
+            switch_session_with_cwd(Some(&target_session), cwd);
         } else {
-            // Just switch, no saved tab, no layout
-            switch_session_with_focus(&request.target_session, None, None);
+            switch_session_with_focus(&target_session, None, None);
         }
 
         close_self();
@@ -154,14 +307,14 @@ impl ZellijPlugin for State {
 
     fn pipe(&mut self, pipe_message: PipeMessage) -> bool {
         let payload = match pipe_message.payload {
-            Some(p) => p,
+            Some(payload) => payload,
             None => return false,
         };
 
-        let (session, cwd, layout) = parse_pipe_payload(&payload);
+        let (session, cwd, layout, target_exists, state_dir) = parse_pipe_payload(&payload);
 
         let target_session = match session {
-            Some(s) => s,
+            Some(session) => session,
             None => return false,
         };
 
@@ -169,12 +322,11 @@ impl ZellijPlugin for State {
             target_session,
             cwd,
             layout,
+            target_exists,
+            state_dir,
         });
 
-        // If we already have all state, switch immediately.
-        // Otherwise, wait for ModeUpdate/TabUpdate to deliver it.
         self.try_switch();
-
         true
     }
 

@@ -1724,7 +1724,66 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
           (magit-project-status "Magit" ?m)
           (project-vc-dir "VC-Dir" ?v)
           (project-shell "Shell" ?s)
-          (project-eshell "Eshell" ?e))))
+          (project-eshell "Eshell" ?e)))
+
+  (defcustom jb-open-context-project-action 'magit
+    "Default view used by `jb-open-context' for project intent.
+
+- `magit': open `magit-status' when the target is a Git repository,
+  otherwise fall back to Dired at project root.
+- `files': run `project-find-file' at project root.
+- `dired': open Dired at project root."
+    :type '(choice (const :tag "Magit status" magit)
+                   (const :tag "Project find file" files)
+                   (const :tag "Project root dired" dired))
+    :group 'project)
+
+  (defun jb-open-context (dir &optional intent)
+    "Open DIR according to INTENT.
+
+When INTENT is `project', prefer project-aware behavior:
+- Git project + `magit' action -> `magit-status'
+- Project + `files' action      -> `project-find-file'
+- Otherwise                      -> `dired'
+
+When no project is detected, always fall back to `dired' for DIR."
+    (interactive
+     (list (read-directory-name "Context directory: " default-directory nil t)
+           (when current-prefix-arg 'project)))
+    (let* ((target-dir (file-name-as-directory (expand-file-name dir)))
+           (intent (or intent 'project)))
+      (unless (file-directory-p target-dir)
+        (user-error "Not a directory: %s" target-dir))
+      (pcase intent
+        ('project
+         (let* ((project (project-current nil target-dir))
+                (project-root (and project (project-root project)))
+                (git-root (or (and project-root
+                                   (locate-dominating-file project-root ".git"))
+                              (locate-dominating-file target-dir ".git"))))
+           (cond
+            ((and project
+                  (eq jb-open-context-project-action 'magit)
+                  git-root
+                  (fboundp 'magit-status))
+             (let ((default-directory git-root))
+               (magit-status git-root)))
+            ((and project
+                  (eq jb-open-context-project-action 'files))
+             (let ((default-directory project-root))
+               (project-find-file)))
+            (project
+             (dired project-root))
+            (t
+             (dired target-dir)))))
+        (_
+         (dired target-dir)))))
+
+)
+
+;; Ensure project.el is loaded during init so context hooks are active
+;; before the first emacsclient frame is created.
+(require 'project)
 
 ;; go-ts-mode: tree-sitter based Go major mode (built-in).
 ;; Hooks: eglot for LSP, format + organize imports on save.

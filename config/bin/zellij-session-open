@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LAYOUT="project"
+STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
+SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-file:$HOME/.config/zellij/plugins/zellij-smart-switch.wasm}"
+
+SESSION_NAME=""
+TARGET_DIR=""
+FORCE_FRESH=false
+
+usage() {
+  cat <<'EOF'
+Usage: zellij-session-open --name <session> [--dir <path>] [--fresh]
+
+Unified session open/switch logic used by ws + zellij-sessionizer.
+- New session: always created with layout "project".
+- Existing session: switched/attached without reset.
+- --fresh: explicit reset (delete + clear tab state) before opening.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name)
+      SESSION_NAME="${2:-}"
+      shift 2
+      ;;
+    --dir)
+      TARGET_DIR="${2:-}"
+      shift 2
+      ;;
+    --fresh|-f)
+      FORCE_FRESH=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "zellij-session-open: unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -n "$TARGET_DIR" ]]; then
+  if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "zellij-session-open: not a directory: $TARGET_DIR" >&2
+    exit 1
+  fi
+  if command -v realpath >/dev/null 2>&1; then
+    TARGET_DIR="$(realpath "$TARGET_DIR")"
+  else
+    TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
+  fi
+fi
+
+if [[ -z "$SESSION_NAME" ]]; then
+  if [[ -n "$TARGET_DIR" ]]; then
+    SESSION_NAME="$(basename "$TARGET_DIR")"
+  else
+    echo "zellij-session-open: --name is required when --dir is omitted" >&2
+    exit 1
+  fi
+fi
+
+session_state() {
+  # Prints one of: active | exited | current | none
+  local target="$1"
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local session_name="${line%% *}"
+    if [[ "$session_name" == "$target" ]]; then
+      if [[ "$line" == *"(current)"* ]]; then
+        echo "current"
+      elif [[ "$line" == *"(EXITED"* ]]; then
+        echo "exited"
+      else
+        echo "active"
+      fi
+      return 0
+    fi
+  done < <(zellij ls -n 2>/dev/null)
+  echo "none"
+}
+
+clear_saved_focus() {
+  rm -f "$STATE_DIR/$SESSION_NAME" 2>/dev/null || true
+}
+
+delete_session_if_exists() {
+  zellij delete-session "$SESSION_NAME" --force >/dev/null 2>&1 || true
+}
+
+build_switch_payload() {
+  local exists="$1"
+  printf 'session=%s\ncwd=%s\nlayout=%s\nexists=%s\nstate_dir=%s' \
+    "$SESSION_NAME" "" "" "$exists" "$STATE_DIR"
+}
+
+current_state="$(session_state "$SESSION_NAME")"
+
+if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
+  delete_session_if_exists
+  clear_saved_focus
+  current_state="none"
+fi
+
+if [[ -n "${ZELLIJ:-}" ]]; then
+  # Inside zellij: existing session uses plugin switch (focus memory).
+  # Missing session creation uses the same command path as `ws`.
+  if [[ "$current_state" == "none" ]]; then
+    if [[ -z "$TARGET_DIR" ]]; then
+      echo "zellij-session-open: cannot create missing session '$SESSION_NAME' without --dir" >&2
+      exit 1
+    fi
+    zellij -l "$LAYOUT" options --session-name "$SESSION_NAME" --default-cwd "$TARGET_DIR"
+  else
+    payload="$(build_switch_payload 1)"
+    zellij pipe --plugin "$SWITCH_PLUGIN" -- "$payload"
+  fi
+else
+  # Outside zellij: attach existing, create missing with project layout.
+  if [[ "$current_state" == "none" ]]; then
+    if [[ -z "$TARGET_DIR" ]]; then
+      echo "zellij-session-open: cannot create missing session '$SESSION_NAME' without --dir" >&2
+      exit 1
+    fi
+    zellij -l "$LAYOUT" options --session-name "$SESSION_NAME" --default-cwd "$TARGET_DIR"
+  else
+    zellij attach "$SESSION_NAME"
+  fi
+fi
