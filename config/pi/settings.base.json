@@ -12,7 +12,7 @@
     "git:github.com/HazAT/pi-interactive-subagents",
     "npm:pi-web-access",
     "npm:@mjakl/pi-dark-or-light",
-    "github.com/arpagon/pi-rewind"
-      
+    "github.com/arpagon/pi-rewind",
+    "npm:@danchamorro/pi-agent-modes"
   ]
 }
