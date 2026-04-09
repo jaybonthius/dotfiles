@@ -192,17 +192,23 @@ With \\[universal-argument], pick the directory first via `consult-dir'
   (xterm-mouse-mode 1))
 
 ;; Nix Home Manager: apply dotfiles changes from within Emacs.
+(defun jb-home-manager-switch-command ()
+  "Return the `systemd-run' command used for Home Manager switch."
+  (format "systemd-run --user --collect --pipe -E PATH=%s --unit=hm-switch-%s ~/dotfiles/install.sh switch"
+          (shell-quote-argument (getenv "PATH"))
+          (format-time-string "%s")))
+
 (defun jb-home-manager-switch ()
-  "Run `home-manager switch' to apply dotfiles changes.
+  "Run `home-manager switch' in an Eat terminal buffer.
 Saves the current easysession first in case the daemon is restarted.
-Uses `compile' so output is displayed in a *compilation* buffer
-with clickable error locations."
+Preserves rich terminal rendering (color/progress/cursor control)."
   (interactive)
   (when (easysession-get-session-name)
     (easysession-save))
-  (compile (format "systemd-run --user --collect --pipe -E PATH=%s --unit=hm-switch-%s ~/dotfiles/install.sh switch"
-                   (shell-quote-argument (getenv "PATH"))
-                   (format-time-string "%s"))))
+  (let ((buf (eat (jb-home-manager-switch-command) t)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (rename-buffer (format "*hm-switch:%s*" (format-time-string "%H:%M:%S")) t)))))
 
 (global-set-key (kbd "C-c g r") #'jb-home-manager-switch)
 
