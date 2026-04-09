@@ -66,6 +66,8 @@ if [[ -z "$SESSION_NAME" ]]; then
   fi
 fi
 
+# NOTE: no process lock here. Previous lock attempts caused stale-lock no-op behavior.
+
 session_state() {
   # Prints one of: active | exited | current | none
   local target="$1"
@@ -172,15 +174,23 @@ switch_existing_inside() {
     fi
   fi
 
-  if [[ -n "$pane_cli_id" ]]; then
-    zellij action switch-session "$target_session" --pane-id "$pane_cli_id" >/dev/null 2>&1 && return 0
-  fi
-
+  # Switch by tab first when known, then restore pane focus.
+  # This avoids the more fragile combined switch-session --pane-id path.
   if [[ -n "$tab_position" ]]; then
-    zellij action switch-session "$target_session" --tab-position "$tab_position" >/dev/null 2>&1 && return 0
+    zellij action switch-session "$target_session" --tab-position "$tab_position" >/dev/null 2>&1 \
+      || zellij action switch-session "$target_session"
+  else
+    zellij action switch-session "$target_session"
   fi
 
-  zellij action switch-session "$target_session"
+  if [[ -n "$pane_cli_id" ]]; then
+    # Session switch is async-ish; brief retries help restore focus reliably.
+    local _
+    for _ in 1 2 3 4 5; do
+      zellij action focus-pane-id "$pane_cli_id" >/dev/null 2>&1 && break
+      sleep 0.03
+    done
+  fi
 }
 
 start_new_session() {
@@ -192,12 +202,23 @@ start_new_session() {
 current_state="$(session_state "$SESSION_NAME")"
 
 if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
+  # Deleting the current session from inside itself is risky; refuse.
+  if [[ -n "${ZELLIJ:-}" && "$current_state" == "current" ]]; then
+    echo "zellij-session-open: refusing --fresh on the current attached session ('$SESSION_NAME')" >&2
+    exit 1
+  fi
+
   delete_session_if_exists
   clear_saved_focus
   current_state="none"
 fi
 
 if [[ -n "${ZELLIJ:-}" ]]; then
+  # No-op guard: avoid switching to current session repeatedly.
+  if [[ "$current_state" == "current" ]]; then
+    exit 0
+  fi
+
   # Save focus for the current session before leaving it.
   current_session_name="$(zellij ls -n 2>/dev/null | awk '/\(current\)/ { print $1; exit }')"
   capture_current_focus "$current_session_name"
@@ -207,7 +228,15 @@ if [[ -n "${ZELLIJ:-}" ]]; then
       echo "zellij-session-open: cannot create missing session '$SESSION_NAME' without --dir" >&2
       exit 1
     fi
-    zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR"
+
+    # zellij 0.44 switch-session does not reliably create missing sessions.
+    # Create detached first, then switch this client.
+    zellij attach --create-background "$SESSION_NAME" options \
+      --default-layout "$LAYOUT" \
+      --default-cwd "$TARGET_DIR" >/dev/null 2>&1 || true
+
+    zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1 \
+      || zellij action switch-session "$SESSION_NAME"
   else
     switch_existing_inside "$SESSION_NAME"
   fi
