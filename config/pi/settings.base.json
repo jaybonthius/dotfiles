@@ -11,7 +11,7 @@
     "npm:taskplane",
     "git:github.com/HazAT/pi-interactive-subagents",
     "npm:pi-web-access",
-    "npm:@mjakl/pi-dark-or-light",
+    "npm:pi-system-theme",
     "github.com/arpagon/pi-rewind",
     "npm:@danchamorro/pi-agent-modes"
   ]

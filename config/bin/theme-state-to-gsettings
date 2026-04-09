@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEME_FILE="${HOME}/.local/state/theme"
+
+# We only sync explicit dark/light values.
+if [[ ! -f "$THEME_FILE" ]]; then
+  exit 0
+fi
+
+mode="$(tr -d '\r' < "$THEME_FILE" | head -n1 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+case "$mode" in
+  dark)
+    color_scheme="prefer-dark"
+    gtk_theme="Adwaita-dark"
+    ;;
+  light)
+    color_scheme="prefer-light"
+    gtk_theme="Adwaita"
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+
+# gsettings requires a user bus; in non-GUI/headless sessions this may be absent.
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+  exit 0
+fi
+
+if ! command -v gsettings >/dev/null 2>&1; then
+  exit 0
+fi
+
+# GNOME 42+ color-scheme key.
+gsettings set org.gnome.desktop.interface color-scheme "$color_scheme" >/dev/null 2>&1 || true
+# Backward-compatible hint for apps still reading gtk-theme.
+gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" >/dev/null 2>&1 || true

@@ -351,6 +351,12 @@ in
     force = true;
   };
 
+  home.file."bin/theme-state-to-gsettings" = {
+    source = ./config/bin/theme-state-to-gsettings;
+    executable = true;
+    force = true;
+  };
+
   # ── Systemd user services (Linux only) ──────────────────────────────
 
   systemd.user.services = lib.mkIf pkgs.stdenv.isLinux {
@@ -375,6 +381,38 @@ in
       };
     };
 
+    theme-state-to-gsettings = {
+      Unit = {
+        Description = "Sync ~/.local/state/theme to GNOME gsettings";
+        After = [ "default.target" ];
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "%h/bin/theme-state-to-gsettings";
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
+
+  };
+
+  systemd.user.paths = lib.mkIf pkgs.stdenv.isLinux {
+    theme-state-to-gsettings = {
+      Unit = {
+        Description = "Watch ~/.local/state/theme and sync GNOME appearance";
+      };
+      Path = {
+        PathChanged = [
+          "%h/.local/state/theme"
+          "%h/.local/state"
+        ];
+        Unit = "theme-state-to-gsettings.service";
+      };
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
   };
 
   # ── Launchd agents (macOS only) ─────────────────────────────────────
