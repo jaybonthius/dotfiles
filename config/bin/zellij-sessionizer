@@ -3,7 +3,7 @@
 SEARCH_PATHS=(${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-"$HOME/repos"})
 SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles"})
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
-ZELLIJ_SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-"file:$HOME/.config/zellij/plugins/zellij-switch.wasm"}"
+ZELLIJ_SWITCH_PLUGIN="${ZELLIJ_SESSIONIZER_SWITCH_PLUGIN:-"file:$HOME/.config/zellij/plugins/zellij-smart-switch.wasm"}"
 ACTIVE_ONLY=false
 
 # Parse flags

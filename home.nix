@@ -49,29 +49,7 @@ let
     };
   };
 
-  zellij-switch = pkgs.stdenv.mkDerivation rec {
-    pname = "zellij-switch";
-    version = "0.2.1";
-
-    src = pkgs.fetchurl {
-      url = "https://github.com/mostafaqanbaryan/zellij-switch/releases/download/${version}/zellij-switch.wasm";
-      hash = "sha256-7yV+Qf/rczN+0d6tMJlC0UZj0S2PWBcPDNq1BFsKIq4=";
-    };
-
-    dontUnpack = true;
-
-    installPhase = ''
-      runHook preInstall
-      install -Dm644 $src $out/share/zellij/plugins/zellij-switch.wasm
-      runHook postInstall
-    '';
-
-    meta = {
-      description = "Session switcher plugin for zellij";
-      homepage = "https://github.com/mostafaqanbaryan/zellij-switch";
-      license = lib.licenses.mit;
-    };
-  };
+  zellij-smart-switch = ./config/zellij/plugins/zellij-smart-switch.wasm;
 
 in
 {
@@ -348,8 +326,8 @@ in
     force = true;
   };
 
-  xdg.configFile."zellij/plugins/zellij-switch.wasm" = {
-    source = "${zellij-switch}/share/zellij/plugins/zellij-switch.wasm";
+  xdg.configFile."zellij/plugins/zellij-smart-switch.wasm" = {
+    source = zellij-smart-switch;
     force = true;
   };
 
