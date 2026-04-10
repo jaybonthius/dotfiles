@@ -15,13 +15,20 @@ function ws -d "Open or switch a zellij project session"
         return 1
     end
 
-    set -l dir (realpath $args[1])
-    if not test -d $dir
-        echo "ws: not a directory: $dir"
+    set -l dir (realpath -- "$args[1]")
+    if not test -d "$dir"
+        echo "ws: not a directory: $dir" >&2
         return 1
     end
 
-    set -l name (test (count $args) -ge 2; and echo $args[2]; or basename $dir)
+    set -l name
+    if test (count $args) -ge 2
+        set name $args[2]
+    else if command -v zellij-session-name >/dev/null 2>&1
+        set name (zellij-session-name "$dir")
+    else
+        set name (basename "$dir")
+    end
 
     if not command -v zellij-session-open >/dev/null 2>&1
         echo "ws: zellij-session-open not found in PATH" >&2

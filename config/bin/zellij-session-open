@@ -3,6 +3,7 @@ set -euo pipefail
 
 LAYOUT="project"
 STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
+SESSION_DIR_STATE_DIR="${ZELLIJ_SESSION_DIR_STATE_DIR:-$HOME/.local/state/zellij-session-dir}"
 
 SESSION_NAME=""
 TARGET_DIR=""
@@ -59,7 +60,11 @@ fi
 
 if [[ -z "$SESSION_NAME" ]]; then
   if [[ -n "$TARGET_DIR" ]]; then
-    SESSION_NAME="$(basename "$TARGET_DIR")"
+    if command -v zellij-session-name >/dev/null 2>&1; then
+      SESSION_NAME="$(zellij-session-name "$TARGET_DIR")"
+    else
+      SESSION_NAME="$(basename "$TARGET_DIR")"
+    fi
   else
     echo "zellij-session-open: --name is required when --dir is omitted" >&2
     exit 1
@@ -90,6 +95,31 @@ session_state() {
 
 clear_saved_focus() {
   rm -f "$STATE_DIR/$SESSION_NAME" 2>/dev/null || true
+}
+
+session_dir_state_path() {
+  local session="$1"
+  echo "$SESSION_DIR_STATE_DIR/$session"
+}
+
+save_session_dir_state() {
+  local session="$1"
+  local dir="$2"
+  [[ -n "$dir" ]] || return 0
+  mkdir -p "$SESSION_DIR_STATE_DIR"
+  printf '%s\n' "$dir" > "$(session_dir_state_path "$session")"
+}
+
+load_session_dir_state() {
+  local session="$1"
+  local path
+  path="$(session_dir_state_path "$session")"
+  [[ -f "$path" ]] || return 1
+  head -n1 "$path"
+}
+
+clear_session_dir_state() {
+  rm -f "$(session_dir_state_path "$SESSION_NAME")" 2>/dev/null || true
 }
 
 delete_session_if_exists() {
@@ -165,41 +195,40 @@ switch_existing_inside() {
   local target_session="$1"
 
   local pane_cli_id=""
-  local tab_position=""
-
-  if load_focus_state "$target_session"; then
-    tab_position="$LOADED_TAB"
-    if [[ -n "$LOADED_PANE" ]]; then
-      pane_cli_id="$(pane_token_to_cli_pane_id "$LOADED_PANE" 2>/dev/null || true)"
-    fi
+  if load_focus_state "$target_session" && [[ -n "$LOADED_PANE" ]]; then
+    pane_cli_id="$(pane_token_to_cli_pane_id "$LOADED_PANE" 2>/dev/null || true)"
   fi
 
-  # Switch by tab first when known, then restore pane focus.
-  # This avoids the more fragile combined switch-session --pane-id path.
-  if [[ -n "$tab_position" ]]; then
-    zellij action switch-session "$target_session" --tab-position "$tab_position" >/dev/null 2>&1 \
-      || zellij action switch-session "$target_session"
-  else
-    zellij action switch-session "$target_session"
-  fi
+  # Safer switching path: avoid tab-position during session switch.
+  # We've seen active-tab race errors during rapid switching.
+  zellij action switch-session "$target_session"
 
   if [[ -n "$pane_cli_id" ]]; then
-    # Session switch is async-ish; brief retries help restore focus reliably.
+    # Give zellij a moment to settle after switch, then try restoring pane focus.
+    sleep 0.06
     local _
-    for _ in 1 2 3 4 5; do
+    for _ in 1 2 3; do
       zellij action focus-pane-id "$pane_cli_id" >/dev/null 2>&1 && break
-      sleep 0.03
+      sleep 0.05
     done
   fi
 }
 
 start_new_session() {
+  save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
   zellij -l "$LAYOUT" options \
     --session-name "$SESSION_NAME" \
     --default-cwd "$TARGET_DIR"
 }
 
 current_state="$(session_state "$SESSION_NAME")"
+
+if [[ "$FORCE_FRESH" != true && "$current_state" != "none" && -n "$TARGET_DIR" ]]; then
+  stored_target_dir="$(load_session_dir_state "$SESSION_NAME" 2>/dev/null || true)"
+  if [[ -n "$stored_target_dir" && "$stored_target_dir" != "$TARGET_DIR" ]]; then
+    FORCE_FRESH=true
+  fi
+fi
 
 if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
   # Deleting the current session from inside itself is risky; refuse.
@@ -210,6 +239,7 @@ if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
 
   delete_session_if_exists
   clear_saved_focus
+  clear_session_dir_state
   current_state="none"
 fi
 
@@ -235,9 +265,13 @@ if [[ -n "${ZELLIJ:-}" ]]; then
       --default-layout "$LAYOUT" \
       --default-cwd "$TARGET_DIR" >/dev/null 2>&1 || true
 
+    save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
     zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1 \
       || zellij action switch-session "$SESSION_NAME"
   else
+    if [[ -n "$TARGET_DIR" ]]; then
+      save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
+    fi
     switch_existing_inside "$SESSION_NAME"
   fi
 else
@@ -249,6 +283,9 @@ else
     fi
     start_new_session
   else
+    if [[ -n "$TARGET_DIR" ]]; then
+      save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
+    fi
     zellij attach "$SESSION_NAME"
   fi
 fi

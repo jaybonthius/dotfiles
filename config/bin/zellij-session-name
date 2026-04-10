@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 || -z "${1:-}" ]]; then
+  echo "Usage: zellij-session-name <directory>" >&2
+  exit 1
+fi
+
+DIR="$1"
+if [[ ! -d "$DIR" ]]; then
+  echo "zellij-session-name: not a directory: $DIR" >&2
+  exit 1
+fi
+
+if command -v realpath >/dev/null 2>&1; then
+  DIR="$(realpath "$DIR")"
+else
+  DIR="$(cd "$DIR" && pwd -P)"
+fi
+
+base="$(basename "$DIR")"
+safe_base="$(printf '%s' "$base" | tr -cs '[:alnum:]._-' '_' | sed -E 's/^_+//; s/_+$//')"
+[[ -n "$safe_base" ]] || safe_base="project"
+
+hash=""
+if command -v sha1sum >/dev/null 2>&1; then
+  hash="$(printf '%s' "$DIR" | sha1sum | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+  hash="$(printf '%s' "$DIR" | shasum -a 1 | awk '{print $1}')"
+else
+  # Fallback: deterministic but weaker uniqueness than SHA.
+  hash="$(printf '%s' "$DIR" | cksum | awk '{print $1}')"
+fi
+
+short_hash="${hash:0:10}"
+printf '%s__%s\n' "$safe_base" "$short_hash"

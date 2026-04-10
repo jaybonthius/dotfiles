@@ -6,6 +6,7 @@ OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
 ZELLIJ_TAB_STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
 export ZELLIJ_SESSIONIZER_STATE_DIR="$ZELLIJ_TAB_STATE_DIR"
 SESSION_OPEN_CMD="${ZELLIJ_SESSION_OPEN_CMD:-zellij-session-open}"
+SESSION_NAME_CMD="${ZELLIJ_SESSION_NAME_CMD:-zellij-session-name}"
 
 COLOR_ACTIVE=$'\033[33m'
 COLOR_EXITED=$'\033[31m'
@@ -44,19 +45,31 @@ strip_status_suffix() {
   echo "$display_line" | sed -E $'s/[[:space:]]+\x1B\\[[0-9;]*m\((active|exited)\)\x1B\\[0m$//; s/[[:space:]]+\((active|exited)\)$//'
 }
 
+session_name_for_dir() {
+  local dir="$1"
+  if command -v "$SESSION_NAME_CMD" >/dev/null 2>&1; then
+    "$SESSION_NAME_CMD" "$dir"
+  else
+    basename "$dir"
+  fi
+}
+
 extract_session_name() {
   local display_line="$1"
   local clean_path
   clean_path=$(strip_status_suffix "$display_line")
 
-  local full_path
-  if [[ "$clean_path" == ~* ]]; then
-    full_path="$HOME${clean_path:1}"
+  if [[ "$clean_path" == ~* || "$clean_path" == /* ]]; then
+    local full_path
+    if [[ "$clean_path" == ~* ]]; then
+      full_path="$HOME${clean_path:1}"
+    else
+      full_path="$clean_path"
+    fi
+    session_name_for_dir "$full_path"
   else
-    full_path="$clean_path"
+    echo "$clean_path"
   fi
-
-  basename "$full_path"
 }
 
 display_to_full_path() {
@@ -151,7 +164,7 @@ generate_display_list() {
 
   for dir in "${sorted_dirs[@]}"; do
     local session_name
-    session_name=$(basename "$dir")
+    session_name=$(session_name_for_dir "$dir")
 
     [[ "$session_name" == "$current_session" ]] && continue
 
@@ -183,15 +196,27 @@ SELF_PATH="${BASH_SOURCE[0]}"
 temp_script=$(mktemp)
 trap 'rm -f "$temp_script"' EXIT
 export ZELLIJ_SESSION_OPEN_CMD="$SESSION_OPEN_CMD"
+export ZELLIJ_SESSION_NAME_CMD="$SESSION_NAME_CMD"
 cat > "$temp_script" << 'EOF'
 #!/usr/bin/env bash
 
 STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
+SESSION_DIR_STATE_DIR="${ZELLIJ_SESSION_DIR_STATE_DIR:-$HOME/.local/state/zellij-session-dir}"
 OPEN_CMD="${ZELLIJ_SESSION_OPEN_CMD:-zellij-session-open}"
+NAME_CMD="${ZELLIJ_SESSION_NAME_CMD:-zellij-session-name}"
 
 strip_status_suffix() {
   local display_line="$1"
   echo "$display_line" | sed -E $'s/[[:space:]]+\x1B\\[[0-9;]*m\((active|exited)\)\x1B\\[0m$//; s/[[:space:]]+\((active|exited)\)$//'
+}
+
+session_name_for_dir() {
+  local dir="$1"
+  if command -v "$NAME_CMD" >/dev/null 2>&1; then
+    "$NAME_CMD" "$dir"
+  else
+    basename "$dir"
+  fi
 }
 
 extract_session_name() {
@@ -199,14 +224,17 @@ extract_session_name() {
   local clean_path
   clean_path=$(strip_status_suffix "$display_line")
 
-  local full_path
-  if [[ "$clean_path" == ~* ]]; then
-    full_path="$HOME${clean_path:1}"
+  if [[ "$clean_path" == ~* || "$clean_path" == /* ]]; then
+    local full_path
+    if [[ "$clean_path" == ~* ]]; then
+      full_path="$HOME${clean_path:1}"
+    else
+      full_path="$clean_path"
+    fi
+    session_name_for_dir "$full_path"
   else
-    full_path="$clean_path"
+    echo "$clean_path"
   fi
-
-  basename "$full_path"
 }
 
 display_to_full_path() {
@@ -225,6 +253,7 @@ remove_tab_state() {
   local session_name="$1"
   [[ -z "$session_name" ]] && return
   rm -f "$STATE_DIR/$session_name" 2>/dev/null
+  rm -f "$SESSION_DIR_STATE_DIR/$session_name" 2>/dev/null
 }
 
 if [[ "$1" == "delete" ]]; then
@@ -246,7 +275,7 @@ fi
 if [[ "$1" == "recreate" ]]; then
   target_dir=$(display_to_full_path "$2")
   if [[ -d "$target_dir" ]] && command -v "$OPEN_CMD" >/dev/null 2>&1; then
-    session_name=$(basename "$target_dir")
+    session_name=$(session_name_for_dir "$target_dir")
     "$OPEN_CMD" --fresh --name "$session_name" --dir "$target_dir" >/dev/null 2>&1 || true
   else
     session_name=$(extract_session_name "$2")
@@ -290,7 +319,7 @@ if [[ -z "$selected_display" ]]; then
 fi
 
 selected_dir=$(display_to_full_path "$selected_display")
-session_name=$(basename "$selected_dir")
+session_name=$(session_name_for_dir "$selected_dir")
 
 if [[ "$FORCE_FRESH" == true ]]; then
   "$SESSION_OPEN_CMD" --fresh --name "$session_name" --dir "$selected_dir"
