@@ -3,16 +3,11 @@
   "defaultModel": "gpt-5.3-codex",
   "defaultThinkingLevel": "medium",
   "transport": "sse",
-  "theme": "dark",
-  "steeringMode": "one-at-a-time",
+  "steeringMode": "all",
   "packages": [
-    "npm:pi-mcp-adapter",
-    "npm:latchkey",
-    "npm:taskplane",
-    "git:github.com/HazAT/pi-interactive-subagents",
+    "npm:pi-subagents",
     "npm:pi-web-access",
     "npm:pi-system-theme",
-    "github.com/arpagon/pi-rewind",
-    "npm:@danchamorro/pi-agent-modes"
+    "npm:pi-rewind-hook"
   ]
 }
