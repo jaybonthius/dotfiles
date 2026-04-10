@@ -10,7 +10,9 @@ fi
 SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles"})
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
 ZELLIJ_TAB_STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
+SESSION_ACCESS_STATE_DIR="${ZELLIJ_SESSION_ACCESS_STATE_DIR:-$HOME/.local/state/zellij-session-access}"
 export ZELLIJ_SESSIONIZER_STATE_DIR="$ZELLIJ_TAB_STATE_DIR"
+export ZELLIJ_SESSION_ACCESS_STATE_DIR="$SESSION_ACCESS_STATE_DIR"
 SESSION_OPEN_CMD="${ZELLIJ_SESSION_OPEN_CMD:-zellij-session-open}"
 SESSION_NAME_CMD="${ZELLIJ_SESSION_NAME_CMD:-zellij-session-name}"
 
@@ -43,6 +45,26 @@ get_atime() {
     stat -c "%X" "$dir" 2>/dev/null || echo "0"
   else
     stat -f "%a" "$dir" 2>/dev/null || echo "0"
+  fi
+}
+
+get_mtime() {
+  local path="$1"
+  if [[ "$OS_TYPE" == "Linux" ]]; then
+    stat -c "%Y" "$path" 2>/dev/null || echo "0"
+  else
+    stat -f "%m" "$path" 2>/dev/null || echo "0"
+  fi
+}
+
+get_session_access_time() {
+  local session_name="$1"
+  local marker_path="$SESSION_ACCESS_STATE_DIR/$session_name"
+
+  if [[ -f "$marker_path" ]]; then
+    get_mtime "$marker_path"
+  else
+    echo "0"
   fi
 }
 
@@ -95,19 +117,37 @@ generate_active_list() {
     return 0
   fi
 
+  local temp_file
+  temp_file=$(mktemp)
+  declare -A display_by_session=()
+
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
 
     local session_name="${line%% *}"
+    local priority status_suffix
 
     if [[ "$line" == *"(current)"* ]]; then
       continue
     elif [[ "$line" == *"(EXITED"* ]]; then
-      echo "$session_name ${COLOR_EXITED}(exited)${COLOR_RESET}"
+      priority=1
+      status_suffix=" ${COLOR_EXITED}(exited)${COLOR_RESET}"
     else
-      echo "$session_name ${COLOR_ACTIVE}(active)${COLOR_RESET}"
+      priority=2
+      status_suffix=" ${COLOR_ACTIVE}(active)${COLOR_RESET}"
     fi
+
+    local access_time
+    access_time=$(get_session_access_time "$session_name")
+    display_by_session["$session_name"]="${session_name}${status_suffix}"
+    printf '%s\t%s\t%s\n' "$priority" "$access_time" "$session_name" >> "$temp_file"
   done < <(zellij ls -n 2>/dev/null)
+
+  sort -nr -k1,1 -k2,2 "$temp_file" | while IFS=$'\t' read -r _ _ session_name; do
+    [[ -n "$session_name" ]] && echo "${display_by_session[$session_name]}"
+  done
+
+  rm -f "$temp_file"
 }
 
 generate_display_list() {
@@ -132,25 +172,8 @@ generate_display_list() {
     fi
   done
 
-  local sorted_dirs=()
-  if [[ ${#all_dirs[@]} -gt 0 ]]; then
-    local temp_file
-    temp_file=$(mktemp)
-
-    for dir in "${all_dirs[@]}"; do
-      local atime
-      atime=$(get_atime "$dir")
-      printf '%s\t%s\n' "$atime" "$dir" >> "$temp_file"
-    done
-
-    while IFS=$'\t' read -r _ dir_name; do
-      sorted_dirs+=("$dir_name")
-    done < <(sort -nr -k1,1 "$temp_file")
-
-    rm -f "$temp_file"
-  fi
-
   declare -A session_status
+  declare -A session_kind
   local current_session=""
   if command -v zellij >/dev/null 2>&1; then
     while IFS= read -r line; do
@@ -162,17 +185,48 @@ generate_display_list() {
         current_session="$session_name"
       elif [[ "$line" == *"(EXITED"* ]]; then
         session_status["$session_name"]=" ${COLOR_EXITED}(exited)${COLOR_RESET}"
+        session_kind["$session_name"]="exited"
       else
         session_status["$session_name"]=" ${COLOR_ACTIVE}(active)${COLOR_RESET}"
+        session_kind["$session_name"]="active"
       fi
     done < <(zellij ls -n 2>/dev/null)
+  fi
+
+  local sorted_dirs=()
+  if [[ ${#all_dirs[@]} -gt 0 ]]; then
+    local temp_file
+    temp_file=$(mktemp)
+
+    for dir in "${all_dirs[@]}"; do
+      local session_name
+      session_name=$(session_name_for_dir "$dir")
+      [[ "$session_name" == "$current_session" ]] && continue
+
+      local atime kind priority access_time
+      atime=$(get_atime "$dir")
+      kind="${session_kind[$session_name]:-none}"
+
+      case "$kind" in
+        active) priority=2 ;;
+        exited) priority=1 ;;
+        *)      priority=0 ;;
+      esac
+
+      access_time=$(get_session_access_time "$session_name")
+      printf '%s\t%s\t%s\t%s\n' "$priority" "$access_time" "$atime" "$dir" >> "$temp_file"
+    done
+
+    while IFS=$'\t' read -r _ _ _ dir_name; do
+      sorted_dirs+=("$dir_name")
+    done < <(sort -nr -k1,1 -k2,2 -k3,3 "$temp_file")
+
+    rm -f "$temp_file"
   fi
 
   for dir in "${sorted_dirs[@]}"; do
     local session_name
     session_name=$(session_name_for_dir "$dir")
-
-    [[ "$session_name" == "$current_session" ]] && continue
 
     local display_name
     display_name=$(echo "$dir" | sed "s|^$HOME|~|")
@@ -203,11 +257,13 @@ temp_script=$(mktemp)
 trap 'rm -f "$temp_script"' EXIT
 export ZELLIJ_SESSION_OPEN_CMD="$SESSION_OPEN_CMD"
 export ZELLIJ_SESSION_NAME_CMD="$SESSION_NAME_CMD"
+export ZELLIJ_SESSION_ACCESS_STATE_DIR="$SESSION_ACCESS_STATE_DIR"
 cat > "$temp_script" << 'EOF'
 #!/usr/bin/env bash
 
 STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
 SESSION_DIR_STATE_DIR="${ZELLIJ_SESSION_DIR_STATE_DIR:-$HOME/.local/state/zellij-session-dir}"
+ACCESS_STATE_DIR="${ZELLIJ_SESSION_ACCESS_STATE_DIR:-$HOME/.local/state/zellij-session-access}"
 OPEN_CMD="${ZELLIJ_SESSION_OPEN_CMD:-zellij-session-open}"
 NAME_CMD="${ZELLIJ_SESSION_NAME_CMD:-zellij-session-name}"
 
@@ -260,6 +316,7 @@ remove_tab_state() {
   [[ -z "$session_name" ]] && return
   rm -f "$STATE_DIR/$session_name" 2>/dev/null
   rm -f "$SESSION_DIR_STATE_DIR/$session_name" 2>/dev/null
+  rm -f "$ACCESS_STATE_DIR/$session_name" 2>/dev/null
 }
 
 if [[ "$1" == "delete" ]]; then
@@ -299,6 +356,7 @@ if [[ "$ACTIVE_ONLY" == true ]]; then
   fi
 
   selected=$(generate_active_list | fzf --ansi \
+    --layout=reverse \
     --prompt="Switch session: " \
     --header="Enter: Switch | Ctrl+D: Delete Session | Ctrl+K: Kill Session" \
     --bind="ctrl-d:execute($temp_script delete {})+reload(bash '$SELF_PATH' --generate-active-list)" \
@@ -314,6 +372,7 @@ if [[ "$ACTIVE_ONLY" == true ]]; then
 fi
 
 selected_display=$(generate_display_list | fzf --ansi \
+  --layout=reverse \
   --prompt="Select project: " \
   --header="Enter: Select | Ctrl+R: Recreate Session | Ctrl+D: Delete | Ctrl+K: Kill" \
   --bind="ctrl-r:execute($temp_script recreate {})+reload(bash '$SELF_PATH' --generate-list)" \

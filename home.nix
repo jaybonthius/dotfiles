@@ -77,6 +77,7 @@ in
       nodejs
       pnpm
       python3
+      python3Packages.grip
       racket
       typst
       tinymist
@@ -86,6 +87,7 @@ in
 
       # Utilities
       ripgrep
+      cmark
       fzf
       jq
       zoxide

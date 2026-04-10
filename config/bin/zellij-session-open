@@ -4,6 +4,7 @@ set -euo pipefail
 LAYOUT="project"
 STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
 SESSION_DIR_STATE_DIR="${ZELLIJ_SESSION_DIR_STATE_DIR:-$HOME/.local/state/zellij-session-dir}"
+SESSION_ACCESS_STATE_DIR="${ZELLIJ_SESSION_ACCESS_STATE_DIR:-$HOME/.local/state/zellij-session-access}"
 
 SESSION_NAME=""
 TARGET_DIR=""
@@ -122,6 +123,22 @@ clear_session_dir_state() {
   rm -f "$(session_dir_state_path "$SESSION_NAME")" 2>/dev/null || true
 }
 
+session_access_state_path() {
+  local session="$1"
+  echo "$SESSION_ACCESS_STATE_DIR/$session"
+}
+
+touch_session_access_state() {
+  local session="$1"
+  [[ -n "$session" ]] || return 0
+  mkdir -p "$SESSION_ACCESS_STATE_DIR"
+  touch "$(session_access_state_path "$session")"
+}
+
+clear_session_access_state() {
+  rm -f "$(session_access_state_path "$SESSION_NAME")" 2>/dev/null || true
+}
+
 delete_session_if_exists() {
   zellij delete-session "$SESSION_NAME" --force >/dev/null 2>&1 || true
 }
@@ -212,10 +229,13 @@ switch_existing_inside() {
       sleep 0.05
     done
   fi
+
+  touch_session_access_state "$target_session"
 }
 
 start_new_session() {
   save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
+  touch_session_access_state "$SESSION_NAME"
   zellij -l "$LAYOUT" options \
     --session-name "$SESSION_NAME" \
     --default-cwd "$TARGET_DIR"
@@ -227,6 +247,7 @@ create_and_switch_inside() {
   local _
   for _ in 1 2 3; do
     if zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1; then
+      touch_session_access_state "$SESSION_NAME"
       return 0
     fi
     sleep 0.05
@@ -255,12 +276,14 @@ if [[ "$FORCE_FRESH" == true && "$current_state" != "none" ]]; then
   delete_session_if_exists
   clear_saved_focus
   clear_session_dir_state
+  clear_session_access_state
   current_state="none"
 fi
 
 if [[ -n "${ZELLIJ:-}" ]]; then
   # No-op guard: avoid switching to current session repeatedly.
   if [[ "$current_state" == "current" ]]; then
+    touch_session_access_state "$SESSION_NAME"
     exit 0
   fi
 
@@ -294,6 +317,7 @@ else
     if [[ -n "$TARGET_DIR" ]]; then
       save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
     fi
+    touch_session_access_state "$SESSION_NAME"
     zellij attach "$SESSION_NAME"
   fi
 fi
