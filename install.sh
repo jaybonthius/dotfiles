@@ -121,7 +121,11 @@ post_setup_notes() {
     echo "     # Add to: https://github.com/settings/ssh/new"
     echo ""
     echo "  2. Install Python LSP:"
-    echo "     uv tool install basedpyright"
+    if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "aarch64" ]; then
+        echo "     uv tool install basedpyright"
+    else
+        echo "     (skipped: uv is only installed on Linux aarch64)"
+    fi
     echo ""
     echo "  3. Start Emacs daemon (first run only):"
     if [ "$(uname -s)" = "Darwin" ]; then

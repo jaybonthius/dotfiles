@@ -104,6 +104,9 @@ in
       # Custom packages
       opener
     ]
+    ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
+      uv
+    ]
     ++ lib.optionals stdenv.isLinux [
       emacs-nox
       earlyoom
