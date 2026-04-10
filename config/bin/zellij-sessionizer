@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-SEARCH_PATHS=(${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-"$HOME/repos"})
+if [[ -n "${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-}" ]]; then
+  # Space-delimited list from env, e.g. "/path/one /path/two"
+  # shellcheck disable=SC2206
+  SEARCH_PATHS=(${ZELLIJ_SESSIONIZER_SEARCH_PATHS})
+else
+  SEARCH_PATHS=("$HOME/repos" "$HOME/code" "/Users/jay.bonthius/Code")
+fi
 SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles"})
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
 ZELLIJ_TAB_STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"

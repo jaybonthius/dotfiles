@@ -21,15 +21,11 @@ layout {
     }
 
     tab name="editor" focus=true {
-        pane command="emacs-open-context" {
-            cwd "."
-        }
+        pane command="emacs-open-context"
     }
 
     tab name="pi" {
-        pane command="pi" {
-            cwd "."
-        }
+        pane command="pi"
     }
 
     tab name="terminal" {

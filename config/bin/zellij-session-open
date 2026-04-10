@@ -221,6 +221,21 @@ start_new_session() {
     --default-cwd "$TARGET_DIR"
 }
 
+create_and_switch_inside() {
+  # Let zellij create-or-switch with explicit layout/cwd.
+  # Retry briefly to smooth over transient switch races.
+  local _
+  for _ in 1 2 3; do
+    if zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.05
+  done
+
+  echo "zellij-session-open: failed to create/switch session '$SESSION_NAME' with cwd '$TARGET_DIR'" >&2
+  return 1
+}
+
 current_state="$(session_state "$SESSION_NAME")"
 
 if [[ "$FORCE_FRESH" != true && "$current_state" != "none" && -n "$TARGET_DIR" ]]; then
@@ -259,15 +274,8 @@ if [[ -n "${ZELLIJ:-}" ]]; then
       exit 1
     fi
 
-    # zellij 0.44 switch-session does not reliably create missing sessions.
-    # Create detached first, then switch this client.
-    zellij attach --create-background "$SESSION_NAME" options \
-      --default-layout "$LAYOUT" \
-      --default-cwd "$TARGET_DIR" >/dev/null 2>&1 || true
-
     save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
-    zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1 \
-      || zellij action switch-session "$SESSION_NAME"
+    create_and_switch_inside
   else
     if [[ -n "$TARGET_DIR" ]]; then
       save_session_dir_state "$SESSION_NAME" "$TARGET_DIR"
