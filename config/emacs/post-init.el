@@ -1358,7 +1358,10 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
 ;; Integrates with magit-diff, magit-blame, and dired.
 (use-package difftastic
   :ensure t
-  :defer t)
+  :defer t
+  :config
+  ;; Default to unified one-column output (avoids narrow side-by-side issues).
+  (add-to-list 'difftastic-difft-environment "DFT_DISPLAY=inline"))
 
 (use-package difftastic-bindings
   :ensure nil
