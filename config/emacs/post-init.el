@@ -1981,6 +1981,14 @@ Produces a line like: ;; Foo ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
 (add-hook 'racket-mode-hook #'racket-xp-mode)
 (add-hook 'racket-hash-lang-mode-hook #'racket-xp-mode)
 
+;; Enable upstream semantic binding faces for hash-lang buffers.
+;; This uses racket-xp/check-syntax annotations only; no regex hacks.
+(defun jb-racket-hash-lang-semantic-hook (_module-language)
+  "Prefer XP semantic binding faces in `racket-hash-lang-mode' buffers."
+  (setq-local racket-xp-add-binding-faces t))
+
+(add-hook 'racket-hash-lang-module-language-hook
+          #'jb-racket-hash-lang-semantic-hook)
 
 ;; Punct (.punct) markdown highlighting for racket-hash-lang-mode.
 ;;
@@ -2231,12 +2239,17 @@ REPORT-FN is the Flymake callback for reporting diagnostics."
                        (flymake-log :warning "Canceling obsolete raco review check %s" proc))
                    (kill-buffer (process-buffer proc))))))))))
 
-;; racket-hash-lang: major mode for Racket hash-lang files (.rhm, .scrbl, .punct).
+;; scribble-mode: dedicated major mode for Scribble docs (.scrbl).
+(use-package scribble-mode
+  :ensure (:host github :repo "priime0/scribble-mode")
+  :defer t
+  :mode ("\\.scrbl\\'" . scribble-mode))
+
+;; racket-hash-lang: major mode for Racket hash-lang files (.rhm, .punct).
 (use-package racket-hash-lang
   :ensure (racket-mode :host github :repo "greghendershott/racket-mode")
   :defer t
   :mode (("\\.rhm\\'" . racket-hash-lang-mode)
-         ("\\.scrbl\\'" . racket-hash-lang-mode)
          ("\\.punct\\'" . racket-hash-lang-mode))
   :bind (:map racket-hash-lang-mode-map
               ("C-c C-d" . racket-xp-describe)
