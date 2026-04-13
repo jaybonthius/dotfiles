@@ -473,15 +473,29 @@ in
     fi
   '';
 
-  # Install pnpm global packages (deep merge, OpenSpec, pi-coding-agent).
+  # Install pnpm global packages (deep merge, OpenSpec, pi-coding-agent, skills).
   # PATH must include nodejs/bin so postinstall scripts can find `node`,
   # and PNPM_HOME must be on PATH for pnpm to accept global installs.
   home.activation.installPnpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     export PNPM_HOME="$HOME/.local/share/pnpm"
     run mkdir -p "$PNPM_HOME"
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
-      run ${pkgs.pnpm}/bin/pnpm add -g deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent
+      run ${pkgs.pnpm}/bin/pnpm add -g deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent skills
   '';
+
+  # Install Caveman skills globally for Claude Code and Pi.
+  home.activation.installCavemanSkill =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "installPnpmGlobals"
+      ]
+      ''
+        export PNPM_HOME="$HOME/.local/share/pnpm"
+        PATH="${pkgs.nodejs}/bin:${pkgs.git}/bin:$PNPM_HOME:$PATH"
+
+        run ${pkgs.nodejs}/bin/npx -y skills add JuliusBrussee/caveman -g -a claude-code pi -y
+      '';
 
   # ── Pi Coding Agent config merge (activation scripts) ───────────────
   # settings.base.json  — Nix-managed settings + packages (home.file above)
