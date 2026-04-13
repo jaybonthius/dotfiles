@@ -8,6 +8,7 @@
     "npm:pi-subagents",
     "npm:pi-web-access",
     "npm:pi-system-theme",
-    "npm:pi-rewind-hook"
+    "npm:pi-rewind-hook",
+    "npm:pi-verbosity-control"
   ]
 }
