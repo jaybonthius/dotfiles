@@ -2542,6 +2542,46 @@ redundant static file server on a random port."
   :bind (("C-c a O" . opencode)
          ("C-c a P" . opencode-select-project)))
 
+;; md-ts-mode: tree-sitter Markdown mode required by pi-coding-agent.
+;; Use explicit recipe because Elpaca can fail to resolve `md-ts-mode'
+;; from archive metadata (`:source`-only recipe).
+(use-package md-ts-mode
+  :ensure (:host github :repo "dnouri/md-ts-mode"))
+
+;; markdown-table-wrap: table wrapping helper required by pi-coding-agent.
+(use-package markdown-table-wrap
+  :ensure (:host github :repo "dnouri/markdown-table-wrap"))
+
+;; pi-coding-agent: native Emacs frontend for the pi coding agent.
+;; Uses the same pi CLI already installed via Home Manager (PNPM global).
+(use-package pi-coding-agent
+  :ensure (:host github :repo "dnouri/pi-coding-agent")
+  :after (md-ts-mode markdown-table-wrap)
+  :commands (pi-coding-agent pi-coding-agent-toggle)
+  :bind (("C-c a p" . pi-coding-agent)
+         ("C-c a t" . pi-coding-agent-toggle))
+  :init
+  (defalias 'pi 'pi-coding-agent)
+  :custom
+  ;; Emacs daemon PATH in systemd may not include PNPM_HOME.  Fall back
+  ;; to the canonical pnpm global binary path when plain "pi" is missing.
+  (pi-coding-agent-executable
+   (let ((pnpm-pi (expand-file-name "~/.local/share/pnpm/pi")))
+     (if (and (not (executable-find "pi"))
+              (file-executable-p pnpm-pi))
+         (list pnpm-pi)
+       '("pi"))))
+  :config
+  ;; Disable meow in pi buffers so native pi keymaps work as documented.
+  (add-hook 'pi-coding-agent-chat-mode-hook
+            (lambda ()
+              (when (fboundp 'meow-mode)
+                (meow-mode -1))))
+  (add-hook 'pi-coding-agent-input-mode-hook
+            (lambda ()
+              (when (fboundp 'meow-mode)
+                (meow-mode -1)))))
+
 (with-eval-after-load 'gptel-agent-tools
   (defun gptel-agent--glob (pattern &optional path depth)
     "Find files matching PATTERN using the `tree' command.
