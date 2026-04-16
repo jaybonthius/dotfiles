@@ -2,7 +2,7 @@
 name: scout
 description: Fast codebase recon that returns compressed context for handoff
 tools: read, grep, find, ls, bash, write
-model: claude-opus-4-6
+model: github-copilot/gpt-5.3-codex
 output: context.md
 defaultProgress: true
 ---

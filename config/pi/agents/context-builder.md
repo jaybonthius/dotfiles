@@ -2,7 +2,7 @@
 name: context-builder
 description: Analyzes requirements and codebase, generates context and meta-prompt
 tools: read, grep, find, ls, bash, web_search
-model: claude-opus-4-6
+model: github-copilot/gpt-5.3-codex
 output: context.md
 ---
 

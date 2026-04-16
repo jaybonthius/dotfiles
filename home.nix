@@ -302,6 +302,12 @@ in
     force = true;
   };
 
+  # Global Pi skills managed from dotfiles.
+  home.file.".agents/skills/orchestrator-review-loop" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/orchestrator-review-loop";
+    force = true;
+  };
+
   # ── Tmux ────────────────────────────────────────────────────────────
 
   xdg.configFile."tmux/tmux.conf" = {

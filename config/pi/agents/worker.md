@@ -1,7 +1,7 @@
 ---
 name: worker
 description: General-purpose subagent with full capabilities, isolated context
-model: claude-opus-4-6
+model: github-copilot/gpt-5.3-codex
 defaultReads: context.md, plan.md
 defaultProgress: true
 ---
