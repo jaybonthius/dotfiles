@@ -303,8 +303,8 @@ in
   };
 
   # Global Pi skills managed from dotfiles.
-  home.file.".agents/skills/orchestrator-review-loop" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/orchestrator-review-loop";
+  home.file.".agents/skills/subagent-orchestrator" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/subagent-orchestrator";
     force = true;
   };
 
