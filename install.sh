@@ -5,6 +5,7 @@
 #   ~/dotfiles/install.sh              # Run all steps
 #   ~/dotfiles/install.sh install-nix  # Run a single step
 #   ~/dotfiles/install.sh switch       # Apply home-manager config
+#   ~/dotfiles/install.sh install-racket # Install upstream Racket (Linux aarch64 only)
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -85,6 +86,9 @@ switch() {
     else
         home-manager switch --impure --flake "$DOTFILES_DIR#$config"
     fi
+
+    install_racket_if_needed
+
     ok "home-manager switch complete"
 }
 
@@ -107,6 +111,57 @@ fish_plugins() {
     fi
     fish -c 'fisher update 2>/dev/null; or fisher install (cat ~/.config/fish/fish_plugins)'
     ok "Fish plugins installed"
+}
+
+install_racket_links() {
+    local dest="$1"
+    local link_dir="$HOME/.local/bin"
+
+    mkdir -p "$link_dir"
+
+    local f
+    for f in "$dest"/bin/*; do
+        [ -f "$f" ] || continue
+        [ -x "$f" ] || continue
+        ln -sf "$f" "$link_dir/$(basename "$f")"
+    done
+}
+
+install_racket_if_needed() {
+    local url="https://download.racket-lang.org/installers/9.1/racket-9.1-aarch64-linux-buster-cs.sh"
+    local dest="$HOME/racket"
+
+    if [ "$(uname -s)" != "Linux" ] || [ "$(uname -m)" != "aarch64" ]; then
+        info "Skipping Racket installer (only for Linux aarch64)"
+        return
+    fi
+
+    if command -v racket >/dev/null 2>&1; then
+        ok "Racket already installed: $(racket --version | head -n1)"
+        return
+    fi
+
+    if [ -x "$dest/bin/racket" ]; then
+        info "Found existing Racket at $dest; creating ~/.local/bin links..."
+        install_racket_links "$dest"
+    else
+        info "Installing Racket 9.1 (Linux aarch64) from upstream installer..."
+        local tmp
+        tmp="$(mktemp /tmp/racket-installer.XXXXXX.sh)"
+        trap 'rm -f "$tmp"' RETURN
+
+        curl -fL "$url" -o "$tmp"
+        chmod +x "$tmp"
+        "$tmp" --in-place --dest "$dest"
+        install_racket_links "$dest"
+    fi
+
+    if command -v racket >/dev/null 2>&1; then
+        ok "Racket installed: $(racket --version | head -n1)"
+    else
+        warn "Racket installed to $dest, but not on PATH in this shell"
+        warn "Open a new shell or run: export PATH=\"$HOME/.local/bin:$PATH\""
+    fi
 }
 
 post_setup_notes() {
@@ -163,6 +218,7 @@ else
             switch)          switch ;;
             compile-terminfo) compile_terminfo ;;
             fish-plugins)    fish_plugins ;;
+            install-racket)  install_racket_if_needed ;;
             notes)           post_setup_notes ;;
             *)               fail "Unknown step: $step" ;;
         esac

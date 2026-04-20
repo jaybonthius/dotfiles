@@ -78,7 +78,6 @@ in
       pnpm
       python3
       python3Packages.grip
-      racket
       typst
       tinymist
       templ
@@ -125,12 +124,6 @@ in
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
-
-    # Racket on Nix: avoid writing compiled bytecode into read-only
-    # /nix/store paths (e.g. .../scribble-lib/.../compiled).
-    # Cache all compiled artifacts under user cache, version-scoped.
-    # Racket expands @(version) in PLTCOMPILEDROOTS.
-    PLTCOMPILEDROOTS = "$HOME/.cache/racket/@(version)/compiled";
   };
 
   home.sessionPath = [
@@ -391,7 +384,6 @@ in
         Environment = [
           "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
           "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
-          "PLTCOMPILEDROOTS=%h/.cache/racket/@(version)/compiled"
         ];
       };
       Install = {
