@@ -9,6 +9,7 @@
     "npm:pi-web-access",
     "npm:pi-system-theme",
     "npm:pi-rewind-hook",
+    "npm:pi-powerline-footer",
     "npm:pi-verbosity-control"
   ]
 }
