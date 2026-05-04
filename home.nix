@@ -190,6 +190,10 @@ in
       source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/ws.fish";
       force = true;
     };
+    "fish/functions/athenaq.fish" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/fish/functions/athenaq.fish";
+      force = true;
+    };
   };
 
   # Seed fish_plugins on first run only (Fisher owns it after that)

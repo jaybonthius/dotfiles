@@ -52,3 +52,24 @@ set -gx PI_SUBAGENT_MUX zellij
 
 # Tell subagent extension we're fish (SHELL may say /bin/bash due to tmux default-shell)
 set -gx SHELL (which fish)
+
+# Restore pre-4.1-ish Option/Alt word motions/kills (instead of token-level defaults)
+function fish_user_key_bindings
+    # Delete previous word
+    bind alt-backspace backward-kill-word
+    bind \e\x7f backward-kill-word
+    bind \e\b backward-kill-word
+
+    # Move/delete by word with Alt
+    bind alt-left prevd-or-backward-word
+    bind alt-right nextd-or-forward-word
+    bind alt-delete kill-word
+
+    # Keep Ctrl variants available for token-level operations
+    bind ctrl-backspace backward-kill-token
+    bind ctrl-delete kill-token
+
+    # Optional in many terminals; harmless if unsupported
+    bind ctrl-left backward-word
+    bind ctrl-right forward-word
+end
