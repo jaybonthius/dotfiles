@@ -661,7 +661,11 @@ Ensures required directories and files exist, sets up file-notify."
       org-hide-emphasis-markers t
       org-ellipsis "…"
       org-tags-column 0
-      org-auto-align-tags nil)
+      org-auto-align-tags nil
+      ;; Keep source-block indentation stable while typing/editing.
+      org-src-preserve-indentation t
+      org-edit-src-content-indentation 0
+      org-src-tab-acts-natively t)
 
 ;;; ============================================================================
 ;;; Note-taking: Denote and companion packages
@@ -940,6 +944,26 @@ Ensures required directories and files exist, sets up file-notify."
 
 (global-unset-key (kbd "C-<wheel-up>"))
 (global-unset-key (kbd "C-<wheel-down>"))
+
+;;; M-DEL: kill previous word, but stop at whitespace/newline runs.
+;; This matches common editor behavior: if point is after whitespace
+;; (including newlines), delete only that whitespace and stop.
+(defun jb-backward-kill-word-or-whitespace ()
+  "Kill previous word, or delete contiguous whitespace before point.
+If point is preceded by space/tab/newline, delete only that whitespace run.
+Otherwise behave like `backward-kill-word'."
+  (interactive)
+  (if (and (not (bobp))
+           (save-excursion
+             (backward-char 1)
+             (looking-at-p "[[:space:]]")))
+      (let ((end (point)))
+        (skip-chars-backward " \t\n\r")
+        (delete-region (point) end))
+    (backward-kill-word 1)))
+
+(global-set-key (kbd "M-DEL") #'jb-backward-kill-word-or-whitespace)
+(global-set-key (kbd "M-<backspace>") #'jb-backward-kill-word-or-whitespace)
 
 ;;; Terminal: map F12 as a Control modifier prefix.
 
