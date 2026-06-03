@@ -7,7 +7,7 @@ if [[ -n "${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-}" ]]; then
 else
   SEARCH_PATHS=("$HOME/repos" "$HOME/code" "/Users/jay.bonthius/Code")
 fi
-SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles"})
+SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles $HOME/repos"})
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
 ZELLIJ_TAB_STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
 SESSION_ACCESS_STATE_DIR="${ZELLIJ_SESSION_ACCESS_STATE_DIR:-$HOME/.local/state/zellij-session-access}"
@@ -75,8 +75,14 @@ strip_status_suffix() {
 
 session_name_for_dir() {
   local dir="$1"
+  local name=""
+
   if command -v "$SESSION_NAME_CMD" >/dev/null 2>&1; then
-    "$SESSION_NAME_CMD" "$dir"
+    name=$("$SESSION_NAME_CMD" "$dir" 2>/dev/null || true)
+  fi
+
+  if [[ -n "$name" ]]; then
+    echo "$name"
   else
     basename "$dir"
   fi
@@ -205,7 +211,11 @@ generate_display_list() {
 
       local atime kind priority access_time
       atime=$(get_atime "$dir")
-      kind="${session_kind[$session_name]:-none}"
+      if [[ -n "$session_name" ]]; then
+        kind="${session_kind[$session_name]:-none}"
+      else
+        kind="none"
+      fi
 
       case "$kind" in
         active) priority=2 ;;
@@ -231,7 +241,7 @@ generate_display_list() {
     local display_name
     display_name=$(echo "$dir" | sed "s|^$HOME|~|")
 
-    if [[ -n "${session_status[$session_name]}" ]]; then
+    if [[ -n "$session_name" && -n "${session_status[$session_name]}" ]]; then
       display_name="${display_name}${session_status[$session_name]}"
     fi
 

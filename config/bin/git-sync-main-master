@@ -1,0 +1,90 @@
+#!/usr/bin/env fish
+
+# Sync every git repo in a directory to main (or master), pulling from origin.
+# Usage:
+#   git-sync-main-master           # uses current directory
+#   git-sync-main-master /path/to/parent-dir
+
+set -l root (pwd)
+if test (count $argv) -ge 1
+    set root $argv[1]
+end
+
+if not test -d "$root"
+    echo "Not a directory: $root" >&2
+    exit 1
+end
+
+set -l repos_found 0
+
+for repo in "$root"/*
+    if not test -d "$repo/.git"
+        continue
+    end
+
+    set repos_found (math $repos_found + 1)
+    set -l repo_name (basename "$repo")
+
+    echo "=== $repo_name ==="
+
+    pushd "$repo" >/dev/null
+
+    set -l branch
+    if git show-ref --verify --quiet refs/heads/main; or git ls-remote --exit-code --heads origin main >/dev/null 2>&1
+        set branch main
+    else if git show-ref --verify --quiet refs/heads/master; or git ls-remote --exit-code --heads origin master >/dev/null 2>&1
+        set branch master
+    else
+        echo "No main/master found, skipping"
+        popd >/dev/null
+        continue
+    end
+
+    set -l stashed 0
+    set -l untracked (git ls-files --others --exclude-standard)
+    if not git diff --quiet; or not git diff --cached --quiet; or test (count $untracked) -gt 0
+        set -l stash_msg "auto-stash before pull "(date +%F-%T)
+        if git stash push -u -m "$stash_msg" >/dev/null
+            set stashed 1
+            echo "Stashed local changes"
+        else
+            echo "Failed to stash changes" >&2
+            popd >/dev/null
+            continue
+        end
+    end
+
+    if not git fetch origin
+        echo "Fetch failed"
+        if test $stashed -eq 1
+            git stash pop >/dev/null; or echo "stash pop had conflicts (stash kept if pop failed)"
+        end
+        popd >/dev/null
+        continue
+    end
+
+    if not git checkout "$branch"
+        echo "Checkout failed"
+        if test $stashed -eq 1
+            git stash pop >/dev/null; or echo "stash pop had conflicts (stash kept if pop failed)"
+        end
+        popd >/dev/null
+        continue
+    end
+
+    if git pull --ff-only origin "$branch"
+        echo "Synced $branch"
+    else
+        echo "Pull failed"
+    end
+
+    if test $stashed -eq 1
+        git stash pop >/dev/null; or echo "stash pop had conflicts (stash kept if pop failed)"
+    end
+
+    popd >/dev/null
+end
+
+if test $repos_found -eq 0
+    echo "No git repos found under: $root"
+end

@@ -742,6 +742,12 @@ Ensures required directories and files exist, sets up file-notify."
   :ensure t
   :after denote)
 
+;;; compat: compatibility library required by newer packages on Emacs 30.
+
+(use-package compat
+  :ensure t
+  :demand t)
+
 ;;; hl-todo: highlight TODO/FIXME/etc keywords.
 
 (use-package hl-todo

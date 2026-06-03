@@ -72,8 +72,6 @@ in
       eza
 
       # Languages
-      go
-      gopls
       nodejs
       pnpm
       python3
@@ -104,6 +102,10 @@ in
 
       # Custom packages
       opener
+    ]
+    ++ lib.optionals (!(stdenv.isLinux && stdenv.hostPlatform.isx86_64)) [
+      go
+      gopls
     ]
     ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
       uv
@@ -371,6 +373,12 @@ in
     force = true;
   };
 
+  home.file."bin/git-sync-main-master" = {
+    source = ./config/bin/git-sync-main-master;
+    executable = true;
+    force = true;
+  };
+
   # ── Systemd user services (Linux only) ──────────────────────────────
 
   systemd.user.services = lib.mkIf pkgs.stdenv.isLinux {
@@ -482,7 +490,7 @@ in
     export PNPM_HOME="$HOME/.local/share/pnpm"
     run mkdir -p "$PNPM_HOME"
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
-      run ${pkgs.pnpm}/bin/pnpm add -g deepmerge @fission-ai/openspec@latest @mariozechner/pi-coding-agent skills
+      run ${pkgs.pnpm}/bin/pnpm add -g deepmerge @fission-ai/openspec@latest @earendil-works/pi-coding-agent skills
   '';
 
   # Install Caveman skills globally for Claude Code and Pi.
