@@ -1,0 +1,9 @@
+{
+  "toolAliases": [
+    ["subagent", "mcp__subagent__run"],
+    ["web_search", "mcp__web_access__web_search"],
+    ["code_search", "mcp__web_access__code_search"],
+    ["fetch_content", "mcp__web_access__fetch_content"],
+    ["get_search_content", "mcp__web_access__get_search_content"]
+  ]
+}

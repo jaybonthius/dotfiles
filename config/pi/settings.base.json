@@ -10,6 +10,8 @@
     "npm:pi-system-theme",
     "npm:pi-rewind-hook",
     "npm:pi-powerline-footer",
-    "npm:pi-verbosity-control"
+    "npm:pi-verbosity-control",
+    "npm:@benvargas/pi-claude-code-use@1.0.4",
+    "npm:pi-drawio"
   ]
 }
