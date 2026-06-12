@@ -2,7 +2,7 @@
 name: planner
 description: Creates implementation plans from context and requirements
 tools: read, grep, find, ls, write
-model: github-copilot/gpt-5.3-codex
+model: anthropic/claude-opus-4-8
 thinking: high
 output: plan.md
 defaultReads: context.md

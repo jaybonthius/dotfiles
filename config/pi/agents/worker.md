@@ -1,7 +1,7 @@
 ---
 name: worker
 description: General-purpose subagent with full capabilities, isolated context
-model: github-copilot/gpt-5.3-codex
+model: anthropic/claude-opus-4-8
 defaultReads: context.md, plan.md
 defaultProgress: true
 ---
