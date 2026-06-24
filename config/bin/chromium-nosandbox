@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Chromium launcher for agent browser automation (agent-browser /
+# pi-agent-browser-native and @amaster.ai/pi-browser-use via chrome-devtools-mcp).
+#
+# The Nix-provided Chromium ships a SUID sandbox helper that must be owned by
+# root with mode 4755. On this (rootless / VM) setup that is not configured, so
+# Chromium aborts with "running without sandbox" unless --no-sandbox is passed.
+# exec replaces this wrapper with the real browser so Puppeteer/CDP clients can
+# still track the Chromium process and read DevToolsActivePort.
+exec "$HOME/.nix-profile/bin/chromium" --no-sandbox "$@"

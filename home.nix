@@ -51,6 +51,34 @@ let
 
   zellij-smart-switch = ./config/zellij/plugins/zellij-smart-switch.wasm;
 
+  # Tree-sitter knowledge-graph code intelligence server. Used by pi via the
+  # `codebase-memory` skill (CLI mode), not as an MCP server. The `-portable`
+  # release asset is fully static, so no autoPatchelf / runtime deps needed.
+  codebase-memory-mcp = pkgs.stdenv.mkDerivation rec {
+    pname = "codebase-memory-mcp";
+    version = "0.8.1";
+
+    src = pkgs.fetchurl {
+      url = "https://github.com/DeusData/codebase-memory-mcp/releases/download/v${version}/codebase-memory-mcp-linux-arm64-portable.tar.gz";
+      hash = "sha256-E1JqzCpqBpff88dj+0Q6QWWJvBCtixIBW2PYflFd1ys=";
+    };
+
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+      install -Dm755 codebase-memory-mcp $out/bin/codebase-memory-mcp
+      runHook postInstall
+    '';
+
+    meta = {
+      description = "Tree-sitter knowledge-graph code intelligence server";
+      homepage = "https://github.com/DeusData/codebase-memory-mcp";
+      license = lib.licenses.mit;
+      platforms = [ "aarch64-linux" ];
+    };
+  };
+
 in
 {
 
@@ -103,6 +131,9 @@ in
       # Custom packages
       opener
     ]
+    ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
+      codebase-memory-mcp
+    ]
     ++ lib.optionals (!(stdenv.isLinux && stdenv.hostPlatform.isx86_64)) [
       go
       gopls
@@ -114,6 +145,7 @@ in
       emacs-nox
       earlyoom
       inotify-tools
+      chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
     ]
     ++ lib.optionals stdenv.isDarwin [
       fswatch
@@ -126,6 +158,12 @@ in
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
+    # Pin the binary the pi-codebase-memory-mcp extension spawns (Nix-managed).
+    CBM_MCP_BIN = "$HOME/.nix-profile/bin/codebase-memory-mcp";
+    # Browser automation (agent-browser / pi-agent-browser-native): use the
+    # Nix Chromium via the --no-sandbox wrapper since this host has no
+    # Chrome-for-Testing ARM64 build and no configured SUID sandbox.
+    AGENT_BROWSER_EXECUTABLE_PATH = "$HOME/bin/chromium-nosandbox";
   };
 
   home.sessionPath = [
@@ -133,6 +171,7 @@ in
     "$HOME/.local/bin"
     "$HOME/go/bin"
     "$HOME/.local/share/pnpm"
+    "$HOME/.npm-global/bin" # agent-browser CLI (pi-agent-browser-native)
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
     "/Applications/Emacs.app/Contents/MacOS/bin"
@@ -301,9 +340,22 @@ in
     force = true;
   };
 
+  # Global always-on pi instructions.
+  home.file.".pi/agent/AGENTS.md" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/AGENTS.md";
+    force = true;
+  };
+
   # Global Pi skills managed from dotfiles.
   home.file.".agents/skills/subagent-orchestrator" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/subagent-orchestrator";
+    force = true;
+  };
+
+  # CLI fallback skill (the pi-codebase-memory-mcp extension ships the primary
+  # `codebase-memory` skill + native cbm_* tools; this avoids a name collision).
+  home.file.".agents/skills/codebase-memory-cli" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/codebase-memory-cli";
     force = true;
   };
 
@@ -351,6 +403,13 @@ in
 
   home.file."bin/emacs-open-context" = {
     source = ./config/bin/emacs-open-context;
+    executable = true;
+    force = true;
+  };
+
+  # Chromium --no-sandbox wrapper for agent browser automation.
+  home.file."bin/chromium-nosandbox" = {
+    source = ./config/bin/chromium-nosandbox;
     executable = true;
     force = true;
   };

@@ -47,6 +47,9 @@ set fzf_preview_file_cmd cat -n
 # Go environment (GOPATH/GOBIN set via home.sessionVariables in home.nix)
 fish_add_path $GOBIN
 
+# npm global bin (agent-browser CLI and other globally-installed npm tools)
+fish_add_path $HOME/.npm-global/bin
+
 # Force pi to use zellij as the subagent multiplexer backend
 set -gx PI_SUBAGENT_MUX zellij
 
