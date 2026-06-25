@@ -2,3 +2,5 @@ result
 .direnv/
 .pi/
 vendor/pi-interactive-subagents/
+.scratch/
+pi-session-*.html
