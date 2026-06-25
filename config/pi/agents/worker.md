@@ -1,7 +1,6 @@
 ---
 name: worker
 description: General-purpose subagent with full capabilities, isolated context
-model: anthropic/claude-opus-4-8
 defaultReads: context.md, plan.md
 defaultProgress: true
 ---

@@ -2,7 +2,6 @@
 name: context-builder
 description: Analyzes requirements and codebase, generates context and meta-prompt
 tools: read, grep, find, ls, bash, web_search
-model: anthropic/claude-opus-4-8
 output: context.md
 ---
 

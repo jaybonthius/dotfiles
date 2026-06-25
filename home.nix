@@ -374,6 +374,8 @@ in
     [Service]
     Environment=PATH=%h/.local/share/pnpm:%h/.npm-global/bin:%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
     Environment=PI_CODING_AGENT_DIR=%h/.pi/discord-agent
+    ExecStart=
+    ExecStart=%h/.local/share/pnpm/piscord start
   '';
 
   # ── Tmux ────────────────────────────────────────────────────────────
@@ -564,6 +566,11 @@ in
   # piscord -- a Discord gateway daemon that shells out to `pi`).
   # PATH must include nodejs/bin so postinstall scripts can find `node`,
   # and PNPM_HOME must be on PATH for pnpm to accept global installs.
+  # Do not let pnpm's optional self-managed Node/npm live under $PNPM_HOME:
+  # pnpm-generated CLI shims prefer $PNPM_HOME/node over PATH, and old npm/npx
+  # shims point at $PNPM_HOME/nodejs/<old>/... directly. Both can make native
+  # deps (e.g. piscord -> better-sqlite3) or pi package installs run under or
+  # search for an older Node than the Nix Node that built them after upgrades.
   #
   # agent-browser is pinned: pi-agent-browser-native enforces an EXACT upstream
   # version via `pi-agent-browser-doctor`. When that doctor reports drift, bump
@@ -582,6 +589,8 @@ in
   home.activation.installPnpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     export PNPM_HOME="$HOME/.local/share/pnpm"
     run mkdir -p "$PNPM_HOME"
+    run rm -f "$PNPM_HOME/node" "$PNPM_HOME/npm" "$PNPM_HOME/npx"
+    run rm -rf "$PNPM_HOME/nodejs"
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
       run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 deepmerge @fission-ai/openspec@latest @earendil-works/pi-coding-agent skills agent-browser@0.30.1 piscord
   '';
@@ -666,6 +675,40 @@ in
         run ${pkgs.jq}/bin/jq '.packages |= map(select(. != "npm:pi-codebase-memory-mcp"))' \
           "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
+      '';
+
+  # Local-only patch for pi-agent-browser-native 0.2.61. Its short runtime
+  # prompt over-compresses the fuller docs from "respect explicit user stop
+  # boundaries" into an unconditional "Stop before order/post/purchase/submit",
+  # which prevents explicitly requested send/submit browser flows. Patch the
+  # installed package copies after Pi package install/config generation so the
+  # fix survives Home Manager switches and Pi package reinstalls.
+  home.activation.patchPiAgentBrowserNativePrompt =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "installPnpmGlobals"
+        "genPiDiscordConfig"
+      ]
+      ''
+        old='For agent_browser, use open → snapshot -i → current @refs or semanticAction → re-snapshot after navigation/scroll/rerender. Batch same-snapshot forms; split before navigation/submits. Stop before order/post/purchase/submit.'
+        new='For agent_browser, use open → snapshot -i → current @refs or semanticAction → re-snapshot after navigation/scroll/rerender. Batch same-snapshot forms; split before navigation/submits. Respect explicit user stop boundaries: if the user asks to stop before order/post/purchase/submit, stop there; otherwise complete explicitly requested submit/send actions after verifying the target.'
+
+        for f in \
+          "$HOME/.pi/agent/npm/node_modules/pi-agent-browser-native/dist/extensions/agent-browser/lib/playbook.js" \
+          "$HOME/.pi/discord-agent/npm/node_modules/pi-agent-browser-native/dist/extensions/agent-browser/lib/playbook.js"
+        do
+          if [ -f "$f" ] && grep -Fq "$old" "$f"; then
+            run ${pkgs.python3}/bin/python3 - "$f" "$old" "$new" <<'PY'
+import sys
+path, old, new = sys.argv[1:]
+s = open(path, encoding="utf-8").read()
+if old in s:
+    s = s.replace(old, new)
+    open(path, "w", encoding="utf-8").write(s)
+PY
+          fi
+        done
       '';
 
   # Merge base + local into settings.json on every activation.
