@@ -365,10 +365,15 @@ in
   # `piscord daemon install`, and systemd user services run with a minimal
   # PATH (/usr/bin:/bin). This drop-in gives the daemon a real PATH so it can
   # find `pi` (pnpm global) and `node` (nix profile) when it shells out to the
-  # agent. Drop-ins survive piscord regenerating the main unit; `%h` = $HOME.
+  # agent, and points pi at the bot-only config dir (PI_CODING_AGENT_DIR) so the
+  # Discord bot loads every extension EXCEPT pi-codebase-memory-mcp -- whose
+  # long-lived codebase-memory-mcp server child otherwise keeps headless pi
+  # alive forever (see genPiDiscordConfig below). Drop-ins survive piscord
+  # regenerating the main unit; `%h` = $HOME.
   xdg.configFile."systemd/user/pi-discord-gateway.service.d/override.conf".text = ''
     [Service]
     Environment=PATH=%h/.local/share/pnpm:%h/.npm-global/bin:%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
+    Environment=PI_CODING_AGENT_DIR=%h/.pi/discord-agent
   '';
 
   # ── Tmux ────────────────────────────────────────────────────────────
@@ -640,6 +645,27 @@ in
         else
           run cp "$base" "$target"
         fi
+      '';
+
+  # Bot-only pi config dir for piscord (the Discord gateway). Mirrors the
+  # interactive ~/.pi/agent/settings.json but drops pi-codebase-memory-mcp,
+  # whose long-lived codebase-memory-mcp server child keeps pi alive and made
+  # headless (--print) runs hang. Every other extension stays. pi auto-installs
+  # the trimmed package set into ~/.pi/discord-agent/npm on first run, and
+  # auth.json is symlinked so the bot reuses the interactive login. The piscord
+  # systemd unit points pi here via PI_CODING_AGENT_DIR (drop-in above).
+  home.activation.genPiDiscordConfig =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "mergePiConfig"
+      ]
+      ''
+        botdir="$HOME/.pi/discord-agent"
+        run mkdir -p "$botdir"
+        run ${pkgs.jq}/bin/jq '.packages |= map(select(. != "npm:pi-codebase-memory-mcp"))' \
+          "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
+        run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
       '';
 
   # Merge base + local into settings.json on every activation.
