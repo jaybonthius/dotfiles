@@ -7,6 +7,7 @@
   "packages": [
     "npm:pi-subagents",
     "npm:pi-web-access",
+    "npm:visual-explainer",
     "npm:pi-system-theme",
     "npm:pi-rewind-hook",
     "npm:pi-powerline-footer",
@@ -14,7 +15,8 @@
     "npm:@benvargas/pi-claude-code-use@1.0.4",
     "npm:pi-drawio",
     "npm:pi-codebase-memory-mcp",
-    "npm:@amaster.ai/pi-browser-use"
+    "npm:@amaster.ai/pi-browser-use",
+    "npm:pi-agent-browser-native"
   ],
   "pi-browser-use": {
     "headless": true,
