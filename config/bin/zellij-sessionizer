@@ -5,9 +5,16 @@ if [[ -n "${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-}" ]]; then
   # shellcheck disable=SC2206
   SEARCH_PATHS=(${ZELLIJ_SESSIONIZER_SEARCH_PATHS})
 else
-  SEARCH_PATHS=("$HOME/repos" "$HOME/code" "/Users/jay.bonthius/Code")
+  SEARCH_PATHS=("$HOME/repos" "$HOME/code" "$HOME/Code" "/Users/jay.bonthius/Code")
 fi
-SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-"$HOME/dotfiles $HOME/repos"})
+
+if [[ -n "${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-}" ]]; then
+  # Space-delimited list from env, e.g. "/path/one /path/two"
+  # shellcheck disable=SC2206
+  SPECIFIC_PATHS=(${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS})
+else
+  SPECIFIC_PATHS=("$HOME/dotfiles" "$HOME/repos")
+fi
 OS_TYPE="${ZELLIJ_SESSIONIZER_OS_TYPE:-"$(uname)"}"
 ZELLIJ_TAB_STATE_DIR="${ZELLIJ_SESSIONIZER_STATE_DIR:-$HOME/.local/state/zellij-tab-state}"
 SESSION_ACCESS_STATE_DIR="${ZELLIJ_SESSION_ACCESS_STATE_DIR:-$HOME/.local/state/zellij-session-access}"
