@@ -188,18 +188,7 @@ in
     interactiveShellInit = builtins.readFile ./config/fish/config.fish;
   };
 
-  # Launch fish from bash since we can't chsh without root.
-  # Only exec when bash is the login shell and we're interactive,
-  # so scripts/non-interactive sessions stay in bash.
-  programs.bash = {
-    enable = true;
-    initExtra = ''
-      if [ -z "$__FISH_LAUNCHED" ] && command -v fish &>/dev/null; then
-        export __FISH_LAUNCHED=1
-        exec fish -l
-      fi
-    '';
-  };
+  programs.bash.enable = true;
 
   programs.starship = {
     enable = true;
