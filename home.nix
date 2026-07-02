@@ -108,7 +108,7 @@ in
       tinymist
       templ
       nixd
-      nixfmt-rfc-style
+      nixfmt
 
       # Utilities
       ripgrep
@@ -699,14 +699,7 @@ in
           "$HOME/.pi/discord-agent/npm/node_modules/pi-agent-browser-native/dist/extensions/agent-browser/lib/playbook.js"
         do
           if [ -f "$f" ] && grep -Fq "$old" "$f"; then
-            run ${pkgs.python3}/bin/python3 - "$f" "$old" "$new" <<'PY'
-import sys
-path, old, new = sys.argv[1:]
-s = open(path, encoding="utf-8").read()
-if old in s:
-    s = s.replace(old, new)
-    open(path, "w", encoding="utf-8").write(s)
-PY
+            run ${pkgs.python3}/bin/python3 -c 'import sys; p,o,n=sys.argv[1:]; s=open(p,encoding="utf-8").read(); open(p,"w",encoding="utf-8").write(s.replace(o,n) if o in s else s)' "$f" "$old" "$new"
           fi
         done
       '';
