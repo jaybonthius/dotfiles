@@ -170,6 +170,7 @@ in
   home.sessionPath = [
     "$HOME/bin"
     "$HOME/.local/bin"
+    "$HOME/racket/bin"
     "$HOME/go/bin"
     "$HOME/.local/share/pnpm" # nix-managed pnpm globals (pi, agent-browser, ...)
     "$HOME/.npm-global/bin" # legacy npm-global CLIs (pi-installed package bins)
@@ -461,7 +462,7 @@ in
         Restart = "on-failure";
         RestartSec = "3s";
         Environment = [
-          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
+          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:%h/racket/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
           "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
         ];
       };
