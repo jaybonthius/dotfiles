@@ -1,0 +1,36 @@
+// Work-machine project layout for zellij.
+// Deployed as project.kdl on work machines (hostname starts with "pairing-";
+// see home.nix isWorkMachine).
+// Usage: ws <directory> [session-name]
+//
+// Tab 1: Emacs context-aware frame (project/magit when applicable)
+// Tab 2: claude coding agent
+// Tab 3: terminal
+
+layout {
+    default_tab_template {
+        children
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+
+    new_tab_template {
+        pane
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+
+    tab name="editor" focus=true {
+        pane command="emacs-open-context"
+    }
+
+    tab name="claude" {
+        pane command="claude"
+    }
+
+    tab name="terminal" {
+        pane
+    }
+}

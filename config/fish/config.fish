@@ -15,6 +15,13 @@ if test -n "$SSH_AUTH_SOCK"; and test "$SSH_AUTH_SOCK" != "$HOME/.ssh/ssh_auth_s
     ln -sf "$SSH_AUTH_SOCK" "$HOME/.ssh/ssh_auth_sock"
 end
 
+# Conversely, when a shell starts without SSH_AUTH_SOCK in its environment (e.g.
+# the agent wasn't forwarded into it), fall back to that stable symlink if it
+# still points at a live socket, so ssh/git can reach the agent.
+if test -z "$SSH_AUTH_SOCK"; and test -S "$HOME/.ssh/ssh_auth_sock"
+    set -gx SSH_AUTH_SOCK "$HOME/.ssh/ssh_auth_sock"
+end
+
 # Ensure TERM uses the xterm-ghostty terminfo entry when it gets stripped to the
 # generic xterm-color (e.g. Lima's sshd doesn't AcceptEnv TERM by default).
 # Only activates when the compiled entry actually exists.

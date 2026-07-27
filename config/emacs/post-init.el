@@ -1492,7 +1492,27 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
           (kill-buffer buf)))))
 
   (define-key magit-status-mode-map (kbd "o") #'jb-magit-open-repo)
-  (define-key magit-status-mode-map (kbd "O") #'jb-magit-open-pr))
+  (define-key magit-status-mode-map (kbd "O") #'jb-magit-open-pr)
+
+  ;; Hide nested-repo clone dirs from the untracked-files section in the VDR
+  ;; workbench.  Those dirs (see repos.json) are intentionally untracked so
+  ;; search tools can read them, but that means they show up under "Untracked
+  ;; files" where `k' (magit-discard) would recursively delete a whole clone.
+  ;; This is a display-only filter: it touches nothing in git's index or ignore
+  ;; machinery, so ripgrep/search still see everything.
+  (defvar jb-magit-hidden-untracked-dirs '("services" "habitat" "tools" "docs")
+    "Top-level dirs (nested repo clones) to hide from Magit's untracked section.")
+
+  (define-advice magit-list-untracked-files
+      (:filter-return (files) jb-hide-nested-repo-clones)
+    "Hide the nested-repo clone dirs, but only in the VDR workbench repo."
+    (if-let ((top (magit-toplevel)))
+        (if (file-exists-p (expand-file-name "repos.json" top))
+            (let ((re (concat "\\`\\(" (regexp-opt jb-magit-hidden-untracked-dirs)
+                              "\\)/")))
+              (seq-remove (lambda (f) (string-match-p re f)) files))
+          files)
+      files)))
 
 ;; difftastic: structural diffs (via difft CLI) inside Emacs.
 ;; Integrates with magit-diff, magit-blame, and dired.

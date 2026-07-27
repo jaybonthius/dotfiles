@@ -23,6 +23,15 @@ let
     else
       "/home/${username}";
 
+  # ── Detect work machine ─────────────────────────────────────────────
+  # A "work machine" is any host whose /etc/hostname starts with "pairing-".
+  # This is the single source of truth for machine-type decisions; branch on
+  # `isWorkMachine` anywhere below. The pathExists guard keeps pure-mode eval
+  # (e.g. nix flake check) working, mirroring the envUser/envHome fallbacks.
+  hostname = if builtins.pathExists /etc/hostname then builtins.readFile /etc/hostname else "";
+
+  isWorkMachine = lib.hasPrefix "pairing-" hostname;
+
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
   zjstatus = pkgs.stdenv.mkDerivation rec {
@@ -412,8 +421,18 @@ in
     force = true;
   };
 
-  xdg.configFile."zellij/layouts" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/layouts";
+  # Deployed per-file (not whole-dir) so the machine-appropriate project
+  # layout can be selected: work machines get claude, everything else pi.
+  # The deployed filename stays project.kdl so LAYOUT="project" (in
+  # zellij-session-open) and default_layout "project" keep working.
+  xdg.configFile."zellij/layouts/project.kdl" = {
+    source = config.lib.file.mkOutOfStoreSymlink
+      "${homeDirectory}/dotfiles/config/zellij/layouts/${if isWorkMachine then "work" else "personal"}-layout.kdl";
+    force = true;
+  };
+
+  xdg.configFile."zellij/layouts/copilot.kdl" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/zellij/layouts/copilot.kdl";
     force = true;
   };
 
