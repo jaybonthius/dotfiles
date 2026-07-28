@@ -274,12 +274,21 @@ in
         condition = "gitdir:~/Code/engineering-resume/";
         path = "~/.config/git/codeberg";
       }
+      {
+        condition = "hasconfig:remote.*.url:ssh://gitea@git.cons.io:2222/**";
+        path = "~/.config/git/git-cons";
+      }
     ];
   };
 
-  # Codeberg conditional config (raw file, referenced by includes above)
+  # Conditional Git identity configs (raw files, referenced by includes above)
   xdg.configFile."git/codeberg" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/git/codeberg";
+    force = true;
+  };
+
+  xdg.configFile."git/git-cons" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/git/git-cons";
     force = true;
   };
 
