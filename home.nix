@@ -154,7 +154,7 @@ in
       uv
     ]
     ++ lib.optionals stdenv.isLinux [
-      emacs-nox
+      emacs-pgtk
       earlyoom
       inotify-tools
       chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
