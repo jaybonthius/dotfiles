@@ -460,6 +460,12 @@ in
     force = true;
   };
 
+  home.file."bin/claude-open-context" = {
+    source = ./config/bin/claude-open-context;
+    executable = true;
+    force = true;
+  };
+
   # Chromium --no-sandbox wrapper for agent browser automation.
   home.file."bin/chromium-nosandbox" = {
     source = ./config/bin/chromium-nosandbox;
