@@ -135,11 +135,13 @@ in
       # Fonts
       fira-code
 
-      # Build tools
-      gcc
-
       # Custom packages
       opener
+    ]
+    # On Linux use the distro toolchain so it sees distro -dev headers/libs.
+    # A Nix-wrapped GCC intentionally cannot see packages installed by apt.
+    ++ lib.optionals (!stdenv.isLinux) [
+      gcc
     ]
     ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
       codebase-memory-mcp
@@ -168,12 +170,17 @@ in
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
-    # Pin the binary the pi-codebase-memory-mcp extension spawns (Nix-managed).
-    CBM_MCP_BIN = "$HOME/.nix-profile/bin/codebase-memory-mcp";
     # Browser automation (agent-browser / pi-agent-browser-native): use the
     # Nix Chromium via the --no-sandbox wrapper since this host has no
     # Chrome-for-Testing ARM64 build and no configured SUID sandbox.
     AGENT_BROWSER_EXECUTABLE_PATH = "$HOME/bin/chromium-nosandbox";
+  }
+  // lib.optionalAttrs (pkgs.stdenv.isLinux && pkgs.stdenv.hostPlatform.isAarch64) {
+    # Pin the binary the pi-codebase-memory-mcp extension spawns.
+    # Only where the Nix-managed aarch64 portable build actually exists.
+    # On other arches leave unset so the extension falls back to
+    # ~/.local/bin/codebase-memory-mcp (the install.sh build).
+    CBM_MCP_BIN = "$HOME/.nix-profile/bin/codebase-memory-mcp";
   };
 
   home.sessionPath = [
@@ -482,11 +489,11 @@ in
       };
       Service = {
         Type = "simple";
-        ExecStart = "${pkgs.emacs-nox}/bin/emacs --fg-daemon";
+        ExecStart = "${pkgs.emacs-pgtk}/bin/emacs --fg-daemon";
         Restart = "on-failure";
         RestartSec = "3s";
         Environment = [
-          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:%h/racket/bin:%h/go/bin:/usr/local/bin:/usr/bin:/bin"
+          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:%h/racket/bin:%h/go/bin:/opt/gerbil/bin:/usr/local/bin:/usr/bin:/bin"
           "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
         ];
       };
