@@ -16,6 +16,8 @@ Usage: zellij-session-open --name <session> [--dir <path>] [--fresh]
 
 Unified session open/switch logic used by ws + zellij-sessionizer.
 - New session: always created with layout "project".
+- Workbench projects use the workbench root as the session cwd while Emacs
+  keeps the selected nested project as its context.
 - Existing session: switched/attached without reset.
 - --fresh: explicit reset (delete + clear tab state) before opening.
 EOF
@@ -56,6 +58,24 @@ if [[ -n "$TARGET_DIR" ]]; then
     TARGET_DIR="$(realpath "$TARGET_DIR")"
   else
     TARGET_DIR="$(cd "$TARGET_DIR" && pwd -P)"
+  fi
+fi
+
+# The selected project remains TARGET_DIR so emacs-open-context can open it.
+# For repos nested in the Gerbil workbench, start all other layout panes at the
+# workbench root instead. This keeps Pi, terminal, and new tabs at the umbrella
+# project while preserving one Zellij session per selected nested repo.
+SESSION_CWD="$TARGET_DIR"
+WORKBENCH_ROOT="$HOME/Code/workbench-gerbil"
+if [[ -n "$TARGET_DIR" && -d "$WORKBENCH_ROOT" ]]; then
+  if command -v realpath >/dev/null 2>&1; then
+    WORKBENCH_ROOT="$(realpath "$WORKBENCH_ROOT")"
+  else
+    WORKBENCH_ROOT="$(cd "$WORKBENCH_ROOT" && pwd -P)"
+  fi
+
+  if [[ "$TARGET_DIR" == "$WORKBENCH_ROOT" || "$TARGET_DIR" == "$WORKBENCH_ROOT/"* ]]; then
+    SESSION_CWD="$WORKBENCH_ROOT"
   fi
 fi
 
@@ -238,7 +258,7 @@ start_new_session() {
   touch_session_access_state "$SESSION_NAME"
   zellij -l "$LAYOUT" options \
     --session-name "$SESSION_NAME" \
-    --default-cwd "$TARGET_DIR"
+    --default-cwd "$SESSION_CWD"
 }
 
 create_and_switch_inside() {
@@ -246,14 +266,14 @@ create_and_switch_inside() {
   # Retry briefly to smooth over transient switch races.
   local _
   for _ in 1 2 3; do
-    if zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$TARGET_DIR" >/dev/null 2>&1; then
+    if zellij action switch-session "$SESSION_NAME" --layout "$LAYOUT" --cwd "$SESSION_CWD" >/dev/null 2>&1; then
       touch_session_access_state "$SESSION_NAME"
       return 0
     fi
     sleep 0.05
   done
 
-  echo "zellij-session-open: failed to create/switch session '$SESSION_NAME' with cwd '$TARGET_DIR'" >&2
+  echo "zellij-session-open: failed to create/switch session '$SESSION_NAME' with cwd '$SESSION_CWD'" >&2
   return 1
 }
 

@@ -207,6 +207,8 @@ keybinds clear-defaults=true {
         bind "l" { GoToNextTab; }
         bind "left" { GoToPreviousTab; }
         bind "right" { GoToNextTab; }
+        bind "Shift Left" { MoveTab "Left"; }
+        bind "Shift Right" { MoveTab "Right"; }
         bind "1" { GoToTab 1; SwitchToMode "locked"; }
         bind "2" { GoToTab 2; SwitchToMode "locked"; }
         bind "3" { GoToTab 3; SwitchToMode "locked"; }
