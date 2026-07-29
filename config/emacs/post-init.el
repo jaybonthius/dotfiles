@@ -1733,11 +1733,57 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
 ;;; Languages
 ;;; ============================================================================
 
+;;; Chez Scheme: Geiser REPL, evaluation, documentation, and navigation.
+;;; Structural editing is provided by Symex above.
+
+(use-package geiser
+  :ensure t
+  :demand t
+  :custom
+  ;; Chez is the only Scheme implementation Geiser should consider.
+  (geiser-active-implementations '(chez))
+  (geiser-default-implementation 'chez)
+  ;; Enable Geiser and start a Chez REPL when opening a Scheme file.
+  (geiser-mode-auto-p t)
+  (geiser-mode-start-repl-p t)
+  ;; Keep dependencies and load paths isolated between projects.
+  (geiser-repl-per-project-p t))
+
+(use-package geiser-chez
+  :ensure t
+  :demand t
+  :after geiser
+  :custom
+  (geiser-chez-binary "scheme"))
+
+;;; Gerbil Scheme: install the upstream editing mode directly from its source.
+;;; `gerbil-mode' uses `gxi' for its inferior Scheme process; launch one with
+;;; M-x run-scheme from a Gerbil buffer.
+
+(use-package gerbil-mode
+  :ensure (:host github
+           :repo "mighty-gerbils/gerbil"
+           :files ("etc/gerbil-mode.el"))
+  :demand t
+  :mode (("\\.ss\\'" . gerbil-mode)
+         ("\\.pkg\\'" . gerbil-mode))
+  :custom
+  (gerbil-program-name (or (executable-find "gxi") "gxi")))
+
 ;;; Eglot workspace configuration (global, all languages).
 ;;; gopls: enable staticcheck linting and auto-complete unimported packages.
 ;;; basedpyright: default settings (works well out of the box).
 
 (with-eval-after-load 'eglot
+  ;; Register scheme-langserver for static Chez/R6RS code intelligence.
+  ;; Start it explicitly with M-x eglot in Chez buffers so it is never
+  ;; selected for `gerbil-mode', which derives from `scheme-mode'.
+  ;; Geiser remains responsible for REPL interaction and evaluation.
+  (add-to-list 'eglot-server-programs
+               '(scheme-mode . ("scheme-langserver"
+                                "-m" "enable"
+                                "-t" "disable")))
+
   ;; Register basedpyright as the Python LSP server.
   (add-to-list 'eglot-server-programs
                '((python-mode python-ts-mode)
@@ -2272,7 +2318,12 @@ racket-hash-lang-mode's token-based fontification."
 ;; rainbow-delimiters: colorize nested delimiters for visual depth cues.
 (use-package rainbow-delimiters
   :ensure t
-  :hook ((racket-mode racket-hash-lang-mode emacs-lisp-mode) . rainbow-delimiters-mode)
+  :hook ((racket-mode
+          racket-hash-lang-mode
+          emacs-lisp-mode
+          scheme-mode
+          geiser-mode
+          gerbil-mode) . rainbow-delimiters-mode)
   :config
   (jb-modus-dim-inner-parens))
 
