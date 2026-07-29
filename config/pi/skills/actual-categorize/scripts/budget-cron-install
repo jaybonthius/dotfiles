@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Idempotently install the daily Budget AI crontab entry. Re-runnable.
+# Cadence is hard-coded at 8am local time (matches the window: with a 24h
+# lookback and a daily run, each Candidate surfaces about once).
+# Override with: BUDGET_AI_CRON="30 7 * * *" scripts/budget-cron-install
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+SKILL_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
+ENTRY="$SKILL_DIR/scripts/budget-categorize-cron"
+
+CRON="${BUDGET_AI_CRON:-0 8 * * *}"
+begin="# BEGIN actual-categorize"
+end="# END actual-categorize"
+
+tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT
+crontab -l 2>/dev/null | awk -v begin="$begin" -v end="$end" '
+  $0 == begin { skip = 1; next }
+  $0 == end   { skip = 0; next }
+  !skip       { print }
+' > "$tmp" || true
+
+{
+  echo "$begin"
+  echo "$CRON $ENTRY >>\"\${HOME}/.local/state/actual-categorize/cron.log\" 2>&1"
+  echo "$end"
+} >> "$tmp"
+
+crontab "$tmp"
+mkdir -p "$HOME/.local/state/actual-categorize"
+echo "Installed Budget AI cron: $CRON $ENTRY"
+crontab -l | awk -v begin="$begin" -v end="$end" '
+  $0 == begin { show = 1 }
+  show         { print }
+  $0 == end    { show = 0 }
+'

@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# Daily Budget AI cron. Counts uncategorized Candidates, then asks pi to choose
+# a forum title + starter message. The shared create-piscord-thread script
+# creates the Discord forum post and registers it to the same pi session.
+#
+# Test manually:   scripts/budget-categorize-cron
+# Backfill date:    scripts/budget-categorize-cron 2026-07-06
+# DRY-RUN (no thread, no pi call, just count): DRY_RUN=1 scripts/budget-categorize-cron [YYYY-MM-DD]
+set -euo pipefail
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+SKILL_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
+
+# Load secrets. Values exist in the gitignored docker stack env.
+ENV_FILE="${ACTUAL_ENV_FILE:-$HOME/docker/caddy/.env}"
+PISCORD_ENV="${PISCORD_ENV:-$HOME/.config/pi-discord-gateway/config.env}"
+# Use the same bot-safe Pi config as the piscord systemd service. The normal
+# ~/.pi/agent config starts codebase-memory-mcp, whose long-lived child keeps
+# headless `pi -p` alive forever after it has already produced stdout.
+export PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/discord-agent}"
+[[ -r "$ENV_FILE" ]] || { echo "missing $ENV_FILE" >&2; exit 2; }
+set -a; . "$ENV_FILE"; set +a
+if [[ -f "$PISCORD_ENV" ]]; then set -a; . "$PISCORD_ENV"; set +a; fi
+
+: "${ACTUAL_HTTP_API_KEY:?missing in $ENV_FILE}"
+: "${ACTUAL_BUDGET_SYNC_IDS:?missing in $ENV_FILE}"
+: "${ACTUAL_ENCRYPTION_PASSWORD:?missing in $ENV_FILE}"
+: "${DISCORD_BOT_TOKEN:?missing in $PISCORD_ENV}"
+
+API="${ACTUAL_AI_BASE_URL:-https://actual-api.tungo.org/v1}"
+FORUM="${ACTUAL_AI_FORUM_ID:-1524501403156873497}"
+PI_BIN="${PI_BIN:-pi}"
+CREATE_PISCORD_THREAD="${CREATE_PISCORD_THREAD:-$HOME/Code/jmb-resume/scripts/create-piscord-thread}"
+TODAY="$(date +%F)"
+DATE_ARG="${1:-}"
+if [[ $# -gt 1 ]]; then
+  echo "Usage: $0 [YYYY-MM-DD]" >&2
+  exit 2
+fi
+if [[ -n "$DATE_ARG" && ! "$DATE_ARG" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "Invalid date '$DATE_ARG' (expected YYYY-MM-DD)" >&2
+  exit 2
+fi
+
+# Default cron mode: previous day as the lower bound. Explicit mode: exact date.
+if [[ -n "$DATE_ARG" ]]; then
+  MODE="exact-date"
+  SINCE_DATE="$DATE_ARG"
+  UNTIL_DATE="$DATE_ARG"
+  WINDOW_LABEL="$DATE_ARG"
+else
+  MODE="lookback"
+  # portable yesterday (GNU date fallback to BSD date -v)
+  SINCE_DATE="$(date -d 'yesterday' +%F 2>/dev/null || true)"
+  [[ -n "${SINCE_DATE:-}" ]] || SINCE_DATE="$(date -v-1d +%F 2>/dev/null || date +%F)"
+  UNTIL_DATE=""
+  WINDOW_LABEL="last 24h (since $SINCE_DATE)"
+fi
+
+if [[ "${DRY_RUN:-0}" = "1" ]]; then
+  echo "[dry-run] mode=$MODE window=$WINDOW_LABEL"
+fi
+
+# --- Gate: count uncategorized Candidates (category is null) across open accounts ---
+CANDIDATES=$(python3 - "$API" "$ACTUAL_BUDGET_SYNC_IDS" "$ACTUAL_HTTP_API_KEY" \
+  "$ACTUAL_ENCRYPTION_PASSWORD" "$SINCE_DATE" "$UNTIL_DATE" <<'PY'
+import json, sys, urllib.request, urllib.parse
+api, sync, key, enc, since, until = sys.argv[1:7]
+h = {"x-api-key": key, "budget-encryption-password": enc, "accept": "application/json"}
+def get(path):
+    req = urllib.request.Request(api + path, headers=h)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+accounts = get(f"/budgets/{sync}/accounts").get("data", [])
+open_ids = [a["id"] for a in accounts if not a.get("closed")]
+total = 0
+for aid in open_ids:
+    try:
+        qs = urllib.parse.urlencode({k:v for k,v in {"since_date": since, "until_date": until}.items() if v})
+        txns = get(f"/budgets/{sync}/accounts/{aid}/transactions?{qs}").get("data", [])
+    except Exception as e:
+        sys.stderr.write(f"warn: txns for {aid}: {e}\n")
+        continue
+    total += sum(1 for t in txns if t.get("category") is None)
+print(total)
+PY
+)
+
+[[ "$CANDIDATES" =~ ^[0-9]+$ ]] || CANDIDATES=0
+echo "Candidates in $WINDOW_LABEL: $CANDIDATES"
+
+if [[ "${DRY_RUN:-0}" = "1" ]]; then
+  echo "[dry-run] candidates=$CANDIDATES; exiting without creating a thread"
+  exit 0
+fi
+
+# --- Ask pi for title/message, create the thread, and bind it to that same session ---
+if [[ "$MODE" = "exact-date" ]]; then
+  PROMPT="$(cat <<PROMPT
+/skill:actual-categorize
+
+mode: exact-date
+date: $DATE_ARG
+since_date: $SINCE_DATE
+until_date: $UNTIL_DATE
+window: $WINDOW_LABEL
+candidate_count: $CANDIDATES
+
+Create the Budget AI Discord forum starter for this run. You choose both the forum title and starter message.
+PROMPT
+)"
+else
+  PROMPT="$(cat <<PROMPT
+/skill:actual-categorize
+
+mode: lookback
+lookback: last 24h
+since_date: $SINCE_DATE
+window: $WINDOW_LABEL
+candidate_count: $CANDIDATES
+
+Create the Budget AI Discord forum starter for this run. You choose both the forum title and starter message.
+PROMPT
+)"
+fi
+
+args=("$CREATE_PISCORD_THREAD" "$PROMPT" --forum "$FORUM" --cwd "$SKILL_DIR" --label "Budget AI")
+[[ -n "${PISCORD_GUILD_ID:-}" ]] && args+=(--guild "$PISCORD_GUILD_ID")
+
+"${args[@]}"
