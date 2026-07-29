@@ -154,7 +154,7 @@ in
       uv
     ]
     ++ lib.optionals stdenv.isLinux [
-      emacs-pgtk
+      emacs-nox
       earlyoom
       inotify-tools
       chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
@@ -489,7 +489,7 @@ in
       };
       Service = {
         Type = "simple";
-        ExecStart = "${pkgs.emacs-pgtk}/bin/emacs --fg-daemon";
+        ExecStart = "${pkgs.emacs-nox}/bin/emacs --fg-daemon";
         Restart = "on-failure";
         RestartSec = "3s";
         Environment = [
