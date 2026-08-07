@@ -3,6 +3,28 @@
 Always-on guidance loaded by pi (`~/.pi/agent/AGENTS.md`). Keep it short and
 high-signal.
 
+## Planning: clarify before proposing
+
+Before creating or presenting a plan, use Pi's structured question tool to resolve
+owner preferences and genuine product, scope, security, persistence, or architecture
+decisions. Do not fill decision gaps with assumptions. Ask focused questions before
+writing the plan; when recommending an option based on evidence or best practices,
+label it explicitly as **Recommended** and explain why. If you say that you need or
+have questions, ask those questions immediately in the same turn—inline or by invoking
+the structured question tool before ending the response. Never make the owner prompt
+you to reveal questions you already know you need to ask. Drive clarification to
+completion: after answers arrive, continue with any remaining questions or synthesize
+the settled plan; never stop at a meta-announcement that questions come next.
+
+## Ask before working around surprises
+
+Escalate owner-resolvable blockers early. When an expected input, tool, credential,
+environment, or artifact is missing, incompatible, or ambiguous—and the owner could
+likely resolve it with a quick answer—stop after confirming the blocker and ask. State
+what was expected, what was found, and the smallest question needed to continue. Do
+not pursue downloads, emulation, replacement tools, architecture changes, or other
+workarounds without owner approval.
+
 ## Code exploration: prefer the knowledge graph over grep
 
 For **structural** questions about a codebase, use the native **`cbm_*` tools**
