@@ -493,11 +493,11 @@ Preserves rich terminal rendering (color/progress/cursor control)."
            (intern (format "rainbow-delimiters-depth-%d-face" n))
            nil :foreground dim)))))
 
-  (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-apply-face-overrides)
+  ;; (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-apply-face-overrides)
   (add-hook 'modus-themes-after-load-theme-hook #'jb-modus-dim-inner-parens)
   (add-hook 'enable-theme-functions
             (lambda (_theme)
-              (jb-modus-apply-face-overrides)
+              ;; (jb-modus-apply-face-overrides)
               (jb-modus-dim-inner-parens))))
 
 ;; Auto theme sync: watches ~/.local/state/theme for "dark"/"light" changes
