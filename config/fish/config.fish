@@ -54,6 +54,12 @@ set fzf_preview_file_cmd cat -n
 # Go environment (GOPATH/GOBIN set via home.sessionVariables in home.nix)
 fish_add_path $GOBIN
 
+# User-installed Gerbil applications
+fish_add_path $HOME/.gerbil/bin
+
+# User-installed Racket 9.2 applications
+fish_add_path $HOME/.local/share/racket/9.2/bin
+
 # npm global bin (agent-browser CLI and other globally-installed npm tools)
 fish_add_path $HOME/.npm-global/bin
 
