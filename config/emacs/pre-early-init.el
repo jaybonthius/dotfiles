@@ -40,6 +40,7 @@
   (when (or (string= (getenv "COLORTERM") "truecolor")
             (string= (getenv "COLORTERM") "24bit")
             (string-prefix-p "xterm-ghostty" (or (getenv "TERM") "")))
-    (add-to-list 'term-file-aliases '("xterm-ghostty" . "xterm-direct"))))
+    (add-to-list 'term-file-aliases '("xterm-ghostty" . "xterm-direct"))
+    (add-to-list 'term-file-aliases '("xterm-256color" . "xterm-direct"))))
 
 ;;; pre-early-init.el ends here
