@@ -1,0 +1,42 @@
+[projects]
+roots = [
+  "~/repos",
+  "~/code",
+  "~/Code",
+  "~/docker",
+  "~/Code/workbench-gerbil",
+  "~/Code/workbench-go",
+  "~/dotfiles",
+]
+git_only = true
+depth = 1
+
+[ui]
+placement = "overlay"
+
+[layout]
+focus = "editor"
+
+[tabs.editor]
+label = "editor"
+
+[[tabs.editor.panes]]
+id = "editor"
+title = "editor"
+command = "emacs-open-context"
+
+[tabs.pi]
+label = "pi"
+
+[[tabs.pi.panes]]
+id = "pi"
+title = "pi"
+command = "pi"
+
+[tabs.terminal]
+label = "terminal"
+
+[[tabs.terminal.panes]]
+id = "terminal"
+title = "terminal"
+command = ""

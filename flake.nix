@@ -11,6 +11,18 @@
       url = "github:jamescherti/minimal-emacs.d";
       flake = false;
     };
+    paseo = {
+      url = "github:getpaseo/paseo";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    herdr = {
+      url = "github:herdrdev/herdr/v0.8.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    herdr-sessionizer = {
+      url = "github:andrewchng/herdr-sessionizer/003785258f516b100370b3dd97688cf96c8679b5";
+      flake = false;
+    };
   };
 
   outputs =
@@ -18,6 +30,9 @@
       nixpkgs,
       home-manager,
       minimal-emacs,
+      paseo,
+      herdr,
+      herdr-sessionizer,
       ...
     }:
     let
@@ -29,7 +44,14 @@
         home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${system};
           modules = [ ./home.nix ];
-          extraSpecialArgs = { inherit minimal-emacs; };
+          extraSpecialArgs = {
+            inherit
+              minimal-emacs
+              paseo
+              herdr
+              herdr-sessionizer
+              ;
+          };
         };
     in
     {

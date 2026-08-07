@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "gerbil": {
+      "command": "/home/jay/Code/workbench-gerbil/gerbil-mcp/.gerbil/bin/gerbil-mcp",
+      "env": {
+        "GERBIL_MCP_MODE": "full"
+      }
+    }
+  }
+}

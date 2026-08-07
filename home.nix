@@ -3,6 +3,9 @@
   pkgs,
   lib,
   minimal-emacs,
+  paseo,
+  herdr,
+  herdr-sessionizer,
   ...
 }:
 
@@ -31,6 +34,8 @@ let
   hostname = if builtins.pathExists /etc/hostname then builtins.readFile /etc/hostname else "";
 
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
+
+  herdrPackage = herdr.packages.${pkgs.system}.default;
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
@@ -105,6 +110,8 @@ in
       # Shell & terminal
       tmux
       zellij
+      herdrPackage
+      bun
       starship
       eza
 
@@ -158,6 +165,10 @@ in
       earlyoom
       inotify-tools
       chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
+    ]
+    # Paseo CLI/daemon for headless personal hosts. Keep it off work machines.
+    ++ lib.optionals (!isWorkMachine) [
+      paseo.packages.${pkgs.system}.paseo
     ]
     ++ lib.optionals stdenv.isDarwin [
       fswatch
@@ -346,6 +357,12 @@ in
     force = true;
   };
 
+  # Pi MCP Adapter's global server configuration.
+  home.file.".pi/agent/mcp.json" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/mcp.json";
+    force = true;
+  };
+
   home.file.".pi/agent/extensions" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/extensions";
     force = true;
@@ -397,6 +414,20 @@ in
 
   xdg.configFile."tmux/themes" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/themes";
+    force = true;
+  };
+
+  # ── Herdr ───────────────────────────────────────────────────────────
+
+  xdg.configFile."herdr/config.toml" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/herdr/config.toml";
+    force = true;
+  };
+
+  xdg.configFile."herdr/plugins/config/sessionizer/config.toml" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/herdr/${
+      if isWorkMachine then "sessionizer-work" else "sessionizer-personal"
+    }.toml";
     force = true;
   };
 
@@ -635,6 +666,40 @@ in
 
         run ${pkgs.nodejs}/bin/npx -y skills add JuliusBrussee/caveman -g -a claude-code pi -y
       '';
+
+  # Install the reviewed Archify release globally for Pi. Pin the release so a
+  # Home Manager switch cannot silently replace the executable skill contents.
+  home.activation.installArchifySkill =
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "installPnpmGlobals"
+      ]
+      ''
+        export PNPM_HOME="$HOME/.local/share/pnpm"
+        PATH="${pkgs.nodejs}/bin:${pkgs.git}/bin:$PNPM_HOME:$PATH"
+
+        run ${pkgs.nodejs}/bin/npx -y skills add tt-a1i/archify@v2.13.0 -g -a pi -s archify --copy -y
+      '';
+
+  home.activation.installHerdrSessionizer = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    PATH="${pkgs.bun}/bin:${pkgs.git}/bin:${herdrPackage}/bin:$PATH"
+    source_dir=${herdr-sessionizer}
+    target_dir="$HOME/.local/share/herdr/plugins-src/sessionizer"
+    marker="$target_dir/.nix-source"
+
+    if [[ ! -f "$marker" ]] || [[ "$(cat "$marker")" != "$source_dir" ]]; then
+      rm -rf "$target_dir"
+      mkdir -p "$target_dir"
+      cp -R "$source_dir"/. "$target_dir"/
+      chmod -R u+w "$target_dir"
+      cd "$target_dir"
+      ${pkgs.bun}/bin/bun install --frozen-lockfile
+      ${herdrPackage}/bin/herdr plugin unlink sessionizer >/dev/null 2>&1 || true
+      ${herdrPackage}/bin/herdr plugin link "$target_dir"
+      printf '%s\n' "$source_dir" > "$marker"
+    fi
+  '';
 
   # ── Pi Coding Agent config merge (activation scripts) ───────────────
   # settings.base.json  — Nix-managed settings + packages (home.file above)
