@@ -12,7 +12,8 @@
     "npm:pi-agent-browser-native",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-mcp-adapter",
-    "https://github.com/sting8k/pi-vcc"
+    "https://github.com/sting8k/pi-vcc",
+    "git:github.com/justcyl/pi-herdr-tab-sync@7b1837ff37a7fa1c335e6da2b810e172c41df3ee"
   ],
   "powerline": {
     "welcome": false,
