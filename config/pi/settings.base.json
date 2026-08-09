@@ -11,7 +11,8 @@
     "npm:pi-codebase-memory-mcp",
     "npm:pi-agent-browser-native",
     "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:pi-mcp-adapter"
+    "npm:pi-mcp-adapter",
+    "https://github.com/sting8k/pi-vcc"
   ],
   "powerline": {
     "welcome": false,
