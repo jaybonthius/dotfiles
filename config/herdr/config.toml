@@ -14,6 +14,12 @@ type = "plugin_action"
 command = "sessionizer.worktree-open"
 description = "open worktree workspace"
 
+[[keys.command]]
+key = "prefix+tab"
+type = "plugin_action"
+command = "third774.last-workspace.toggle"
+description = "last workspace"
+
 [ui]
 agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true

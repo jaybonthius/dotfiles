@@ -6,6 +6,7 @@
   paseo,
   herdr,
   herdr-sessionizer,
+  herdr-last-workspace,
   ...
 }:
 
@@ -36,6 +37,13 @@ let
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
 
   herdrPackage = herdr.packages.${pkgs.system}.default;
+
+  herdrLastWorkspacePackage = pkgs.rustPlatform.buildRustPackage {
+    pname = "herdr-last-workspace";
+    version = "0.1.0";
+    src = herdr-last-workspace;
+    cargoLock.lockFile = "${herdr-last-workspace}/Cargo.lock";
+  };
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
@@ -701,6 +709,24 @@ in
       cd "$target_dir"
       ${pkgs.bun}/bin/bun install --frozen-lockfile
       ${herdrPackage}/bin/herdr plugin unlink sessionizer >/dev/null 2>&1 || true
+      ${herdrPackage}/bin/herdr plugin link "$target_dir"
+      printf '%s\n' "$source_dir" > "$marker"
+    fi
+  '';
+
+  home.activation.installHerdrLastWorkspace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    source_dir=${herdr-last-workspace}
+    target_dir="$HOME/.local/share/herdr/plugins-src/last-workspace"
+    marker="$target_dir/.nix-source"
+
+    if [[ ! -f "$marker" ]] || [[ "$(cat "$marker")" != "$source_dir" ]]; then
+      rm -rf "$target_dir"
+      mkdir -p "$target_dir/target/release"
+      cp -R "$source_dir"/. "$target_dir"/
+      chmod -R u+w "$target_dir"
+      install -Dm755 ${herdrLastWorkspacePackage}/bin/herdr-last-workspace \
+        "$target_dir/target/release/herdr-last-workspace"
+      ${herdrPackage}/bin/herdr plugin unlink third774.last-workspace >/dev/null 2>&1 || true
       ${herdrPackage}/bin/herdr plugin link "$target_dir"
       printf '%s\n' "$source_dir" > "$marker"
     fi

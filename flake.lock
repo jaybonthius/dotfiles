@@ -22,6 +22,23 @@
         "type": "github"
       }
     },
+    "herdr-last-workspace": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1782147913,
+        "narHash": "sha256-HaNQx4uGYVGP3L3ljFHEDEE53Fs17fC7ypZFDnVjOHk=",
+        "owner": "third774",
+        "repo": "herdr-last-workspace",
+        "rev": "8b55ebf15deaa52b49ff1c2500aab0c19c729420",
+        "type": "github"
+      },
+      "original": {
+        "owner": "third774",
+        "repo": "herdr-last-workspace",
+        "rev": "8b55ebf15deaa52b49ff1c2500aab0c19c729420",
+        "type": "github"
+      }
+    },
     "herdr-sessionizer": {
       "flake": false,
       "locked": {
@@ -114,6 +131,7 @@
     "root": {
       "inputs": {
         "herdr": "herdr",
+        "herdr-last-workspace": "herdr-last-workspace",
         "herdr-sessionizer": "herdr-sessionizer",
         "home-manager": "home-manager",
         "minimal-emacs": "minimal-emacs",

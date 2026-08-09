@@ -23,6 +23,10 @@
       url = "github:andrewchng/herdr-sessionizer/003785258f516b100370b3dd97688cf96c8679b5";
       flake = false;
     };
+    herdr-last-workspace = {
+      url = "github:third774/herdr-last-workspace/8b55ebf15deaa52b49ff1c2500aab0c19c729420";
+      flake = false;
+    };
   };
 
   outputs =
@@ -33,6 +37,7 @@
       paseo,
       herdr,
       herdr-sessionizer,
+      herdr-last-workspace,
       ...
     }:
     let
@@ -50,6 +55,7 @@
               paseo
               herdr
               herdr-sessionizer
+              herdr-last-workspace
               ;
           };
         };
