@@ -22,10 +22,12 @@ if test -z "$SSH_AUTH_SOCK"; and test -S "$HOME/.ssh/ssh_auth_sock"
     set -gx SSH_AUTH_SOCK "$HOME/.ssh/ssh_auth_sock"
 end
 
-# Ensure TERM uses the xterm-ghostty terminfo entry when it gets stripped to the
-# generic xterm-color (e.g. Lima's sshd doesn't AcceptEnv TERM by default).
-# Only activates when the compiled entry actually exists.
-if test "$TERM" = "xterm-color" && infocmp xterm-ghostty >/dev/null 2>&1
+# Herdr uses libghostty-vt but advertises xterm-256color. Emacs 30's
+# COLORTERM fallback aliases exact RGB values 0-7 to ANSI palette colors.
+# Use Ghostty's installed terminfo entry so truecolor remains explicit RGB.
+if set -q HERDR_ENV; and test "$HERDR_ENV" = "1"; and infocmp xterm-ghostty >/dev/null 2>&1
+    set -gx TERM xterm-ghostty
+else if test "$TERM" = "xterm-color"; and infocmp xterm-ghostty >/dev/null 2>&1
     set -gx TERM xterm-ghostty
 end
 
