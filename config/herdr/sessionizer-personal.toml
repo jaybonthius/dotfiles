@@ -4,8 +4,8 @@ roots = [
   "~/code",
   "~/Code",
   "~/docker",
-  "~/Code/workbench-gerbil",
-  "~/Code/workbench-go",
+  "~/Code/workbench-*",
+  "~/*-workbench/repos/*",
   "~/dotfiles",
 ]
 git_only = true
@@ -31,7 +31,7 @@ label = "pi"
 [[tabs.pi.panes]]
 id = "pi"
 title = "pi"
-command = "pi"
+command = "agent-open-context pi"
 
 [tabs.terminal]
 label = "terminal"

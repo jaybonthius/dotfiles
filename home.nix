@@ -559,8 +559,8 @@ in
     force = true;
   };
 
-  home.file."bin/claude-open-context" = {
-    source = ./config/bin/claude-open-context;
+  home.file."bin/agent-open-context" = {
+    source = ./config/bin/agent-open-context;
     executable = true;
     force = true;
   };

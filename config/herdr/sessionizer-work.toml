@@ -4,8 +4,8 @@ roots = [
   "~/code",
   "~/Code",
   "~/docker",
-  "~/Code/workbench-gerbil",
-  "~/Code/workbench-go",
+  "~/Code/workbench-*",
+  "~/*-workbench/repos/*",
   "~/dotfiles",
 ]
 git_only = true
@@ -31,7 +31,7 @@ label = "claude"
 [[tabs.claude.panes]]
 id = "claude"
 title = "claude"
-command = "claude-open-context"
+command = "agent-open-context claude"
 
 [tabs.terminal]
 label = "terminal"
