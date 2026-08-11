@@ -665,6 +665,7 @@ Ensures required directories and files exist, sets up file-notify."
 ;; Built-in Org appearance settings.
 (setq org-hide-leading-stars t
       org-pretty-entities t
+      org-use-sub-superscripts '{}
       org-hide-emphasis-markers t
       org-ellipsis "…"
       org-tags-column 0
@@ -673,6 +674,117 @@ Ensures required directories and files exist, sets up file-notify."
       org-src-preserve-indentation t
       org-edit-src-content-indentation 0
       org-src-tab-acts-natively t)
+
+;;; Org agenda discovery and non-blocking iCalendar publishing.
+
+(require 'org-id)
+
+(defconst jb-org-calendar-export-script
+  (expand-file-name "~/dotfiles/config/emacs/org-calendar-export.el")
+  "Standalone batch exporter for Org calendar feeds.")
+
+(defconst jb-org-calendar-export-lock
+  (expand-file-name "~/.local/state/org-calendar-export.lock")
+  "File used by flock to serialize calendar exporters.")
+
+(defvar jb-org-calendar-export-process nil
+  "Current background calendar export process.")
+
+(defvar jb-org-calendar-export-pending nil
+  "Non-nil when another export is needed after the current one.")
+
+(defun jb-org-discover-agenda-files ()
+  "Return top-level agenda files plus every schedule.org below ~/Code."
+  (let ((top-level-files
+         (mapcar #'expand-file-name '("~/org/inbox.org")))
+        (code-directory (expand-file-name "~/Code/")))
+    (delete-dups
+     (append (seq-filter #'file-exists-p top-level-files)
+             (when (file-directory-p code-directory)
+               (directory-files-recursively
+                code-directory "\\`schedule\\.org\\'"))))))
+
+(defun jb-org-refresh-agenda-files (&rest _)
+  "Refresh `org-agenda-files' from the filesystem."
+  (setq org-agenda-files (jb-org-discover-agenda-files)))
+
+(defun jb-org-calendar-source-file-p (file)
+  "Return non-nil when FILE should trigger calendar publishing."
+  (when file
+    (let ((path (file-truename file))
+          (inbox (file-truename (expand-file-name "~/org/inbox.org")))
+          (code-directory (file-truename (expand-file-name "~/Code/"))))
+      (or (string= path inbox)
+          (and (string= (file-name-nondirectory path) "schedule.org")
+               (file-in-directory-p path code-directory))))))
+
+(defun jb-org-calendar-ensure-ids-before-save ()
+  "Give every heading in a calendar source file a stable Org ID."
+  (when (and (derived-mode-p 'org-mode)
+             (jb-org-calendar-source-file-p buffer-file-name))
+    (save-excursion
+      (save-restriction
+        (widen)
+        (org-map-entries #'org-id-get-create nil 'file)))))
+
+(defun jb-org-calendar--process-sentinel (process _event)
+  "Handle completion of calendar export PROCESS and any queued rerun."
+  (when (memq (process-status process) '(exit signal))
+    (let ((succeeded (and (eq (process-status process) 'exit)
+                          (zerop (process-exit-status process))))
+          (rerun jb-org-calendar-export-pending))
+      (setq jb-org-calendar-export-process nil
+            jb-org-calendar-export-pending nil)
+      (if rerun
+          (jb-org-calendar--start-export)
+        (message "Org calendar export %s"
+                 (if succeeded "finished" "failed; see *Org calendar export*"))))))
+
+(defun jb-org-calendar--start-export ()
+  "Start the standalone calendar exporter."
+  (let ((buffer (get-buffer-create "*Org calendar export*"))
+        (emacs (expand-file-name invocation-name invocation-directory))
+        (flock (or (executable-find "flock")
+                   (user-error "flock executable not found"))))
+    (make-directory (file-name-directory jb-org-calendar-export-lock) t)
+    (with-current-buffer buffer
+      (erase-buffer))
+    (setq jb-org-calendar-export-process
+          (make-process
+           :name "org-calendar-export"
+           :buffer buffer
+           :command (list flock jb-org-calendar-export-lock
+                          emacs "--batch" "-Q" "-l"
+                          jb-org-calendar-export-script)
+           :connection-type 'pipe
+           :noquery t
+           :sentinel #'jb-org-calendar--process-sentinel))))
+
+(defun jb-org-calendar-request-export ()
+  "Queue a non-blocking calendar export."
+  (if (process-live-p jb-org-calendar-export-process)
+      (setq jb-org-calendar-export-pending t)
+    (condition-case err
+        (jb-org-calendar--start-export)
+      (error
+       (setq jb-org-calendar-export-process nil)
+       (message "Could not start Org calendar export: %s"
+                (error-message-string err))))))
+
+(defun jb-org-calendar-export ()
+  "Publish Org calendars in a separate Emacs process."
+  (interactive)
+  (jb-org-calendar-request-export))
+
+(defun jb-org-calendar-export-after-save ()
+  "Queue calendar publishing after saving a calendar source file."
+  (when (and (derived-mode-p 'org-mode)
+             (jb-org-calendar-source-file-p buffer-file-name))
+    (jb-org-calendar-request-export)))
+
+(advice-add 'org-agenda :before #'jb-org-refresh-agenda-files)
+(add-hook 'before-save-hook #'jb-org-calendar-ensure-ids-before-save)
+(add-hook 'after-save-hook #'jb-org-calendar-export-after-save)
 
 ;;; ============================================================================
 ;;; Note-taking: Denote and companion packages
@@ -815,12 +927,9 @@ Ensures required directories and files exist, sets up file-notify."
 
 (setq treesit-font-lock-level 4)
 
-;;; Pixel-precise scrolling (not needed on emacs-mac which handles it natively).
+;;; Use ordinary line-based mouse wheel scrolling.
 
-(unless (and (eq window-system 'mac)
-             (bound-and-true-p mac-carbon-version-string))
-  (setq pixel-scroll-precision-use-momentum nil)
-  (pixel-scroll-precision-mode 1))
+(pixel-scroll-precision-mode -1)
 
 ;;; Built-in minor modes enabled after init.
 
@@ -1984,6 +2093,13 @@ When no project is detected, always fall back to `dired' for DIR."
 
 ;;; Python
 
+(defun jb-insert-python-section (section)
+  "Insert a Python section header comment for SECTION at point.
+Produces a line like: # Input ----------------------------------------------"
+  (interactive "sSection: ")
+  (let ((suffix (make-string (max 0 (- 72 (length section) 3)) ?-)))
+    (insert (format "# %s %s\n" section suffix))))
+
 ;; python-ts-mode: tree-sitter based Python major mode (built-in).
 ;; Hooks: eglot for LSP (basedpyright), compile-command for M-x compile.
 ;; Format-on-save via format-all (ruff) — see Formatting section above.
@@ -1991,6 +2107,8 @@ When no project is detected, always fall back to `dired' for DIR."
   :ensure nil
   :defer t
   :hook ((python-ts-mode . eglot-ensure))
+  :bind (:map python-ts-mode-map
+              ("C-c C-s" . jb-insert-python-section))
   :config
   (defun jb-python-compile-command ()
     "Set compile-command to run the current Python file."
