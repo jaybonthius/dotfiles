@@ -100,6 +100,15 @@ compile_terminfo() {
     fi
 }
 
+default_shell() {
+    # home-manager can't set the login shell (needs root), so do it here.
+    local fish="$HOME/.nix-profile/bin/fish"
+    info "Setting fish as the default shell..."
+    grep -qxF "$fish" /etc/shells || echo "$fish" | sudo tee -a /etc/shells >/dev/null
+    sudo chsh -s "$fish" "$(id -un)"
+    ok "Default shell set to fish (effective next login)"
+}
+
 fish_plugins() {
     info "Installing Fish plugins via Fisher..."
     if ! command -v fish >/dev/null 2>&1; then
@@ -149,6 +158,7 @@ run_all() {
     enable_flakes
     switch
     compile_terminfo
+    default_shell
     fish_plugins
     post_setup_notes
 }
@@ -163,6 +173,7 @@ else
             enable-flakes)   enable_flakes ;;
             switch)          switch ;;
             compile-terminfo) compile_terminfo ;;
+            default-shell)   default_shell ;;
             fish-plugins)    fish_plugins ;;
             notes)           post_setup_notes ;;
             *)               fail "Unknown step: $step" ;;

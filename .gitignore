@@ -4,3 +4,8 @@ result
 vendor/pi-interactive-subagents/
 .scratch/
 pi-session-*.html
+
+# Machine-local git identities. These belong in ~/.config/git/, never here --
+# this repo is public. Listed as a tripwire in case one gets recreated.
+config/git/cox
+config/git/local

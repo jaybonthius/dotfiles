@@ -127,10 +127,6 @@ in
       nodejs
       pnpm
       python3
-      python3Packages.grip
-      typst
-      tinymist
-      templ
       nixd
       nixfmt
 
@@ -141,11 +137,8 @@ in
       jq
       zoxide
       git-lfs
-      difftastic
       postgresql
       netcat-openbsd
-      forgejo-cli
-      ffmpeg # browser automation: `record stop` WebM encoding (pi-agent-browser-native)
 
       # Fonts
       fira-code
@@ -172,11 +165,24 @@ in
       emacs-nox
       earlyoom
       inotify-tools
-      chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
     ]
-    # Paseo CLI/daemon for headless personal hosts. Keep it off work machines.
+    # ── Personal-only ─────────────────────────────────────────────────
+    # Nothing here is needed on work machines; see `isWorkMachine` above.
+    # Keeps roughly 1.6 GiB of closure off work hosts.
     ++ lib.optionals (!isWorkMachine) [
-      paseo.packages.${pkgs.system}.paseo
+      paseo.packages.${pkgs.system}.paseo # CLI/daemon for headless personal hosts
+      python3Packages.grip # markdown preview
+      typst
+      tinymist # typst LSP
+      templ
+      difftastic
+      forgejo-cli # work uses GitHub Enterprise instead
+      ffmpeg # browser automation: `record stop` WebM encoding (pi-agent-browser-native)
+    ]
+    # Shares ~500 MiB of closure with ffmpeg above, so the two are gated
+    # together: dropping only one keeps the shared half alive.
+    ++ lib.optionals (stdenv.isLinux && !isWorkMachine) [
+      chromium # rendered-UI browser automation (agent-browser / pi-browser-use)
     ]
     ++ lib.optionals stdenv.isDarwin [
       fswatch
@@ -189,9 +195,13 @@ in
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
+  }
+  // lib.optionalAttrs (!isWorkMachine) {
     # Browser automation (agent-browser / pi-agent-browser-native): use the
     # Nix Chromium via the --no-sandbox wrapper since this host has no
     # Chrome-for-Testing ARM64 build and no configured SUID sandbox.
+    # Only where Chromium is actually installed, so it never points at
+    # a wrapper wrapping a missing binary.
     AGENT_BROWSER_EXECUTABLE_PATH = "$HOME/bin/chromium-nosandbox";
   }
   // lib.optionalAttrs (pkgs.stdenv.isLinux && pkgs.stdenv.hostPlatform.isAarch64) {
@@ -205,10 +215,14 @@ in
   home.sessionPath = [
     "$HOME/bin"
     "$HOME/.local/bin"
-    "$HOME/racket/bin"
     "$HOME/go/bin"
     "$HOME/.local/share/pnpm" # nix-managed pnpm globals (pi, agent-browser, ...)
     "$HOME/.npm-global/bin" # legacy npm-global CLIs (pi-installed package bins)
+  ]
+  # Hand-installed Racket lives on personal hosts only. Unlike fish_add_path,
+  # sessionPath does not skip missing directories, so gate it explicitly.
+  ++ lib.optionals (!isWorkMachine) [
+    "$HOME/racket/bin"
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
     "/Applications/Emacs.app/Contents/MacOS/bin"
@@ -280,12 +294,25 @@ in
     lfs.enable = true;
 
     settings = {
+      # No global email on work machines: identity there comes entirely from
+      # the untracked ~/.config/git/local (see includes below), which keeps
+      # work addresses out of this repo. git ignores a missing include path
+      # without any warning, so useConfigOnly supplies the missing noise --
+      # it disables the username@hostname guess, which otherwise commits
+      # silently as ubuntu@pairing-<host>.nonprod.internal and puts an
+      # internal hostname in commits that may get pushed somewhere public.
       user = {
         name = "Jay Bonthius";
+        useConfigOnly = true;
+      }
+      // lib.optionalAttrs (!isWorkMachine) {
         email = "jaybonthius@gmail.com";
       };
       init.defaultBranch = "main";
-      alias = {
+      # These shell out to `difft`, which is personal-only (see the
+      # isWorkMachine package gate above). Defining them where difftastic
+      # is absent just yields "cannot run difft" at diff time.
+      alias = lib.optionalAttrs (!isWorkMachine) {
         dft = "-c diff.external=difft diff";
         ds = "-c diff.external=difft show --ext-diff";
         dl = "-c diff.external=difft log -p --ext-diff";
@@ -293,6 +320,10 @@ in
     };
 
     includes = [
+      # Deliberately unmanaged and untracked: the escape hatch for identities
+      # that must not land in a public repo (work email, employer host
+      # patterns). Written by hand per machine. Listed first so the
+      # conditional includes below still win where they match.
       {
         path = "~/.config/git/local";
       }
@@ -566,7 +597,8 @@ in
   };
 
   # Chromium --no-sandbox wrapper for agent browser automation.
-  home.file."bin/chromium-nosandbox" = {
+  # Personal-only: the Chromium it wraps is gated the same way.
+  home.file."bin/chromium-nosandbox" = lib.mkIf (!isWorkMachine) {
     source = ./config/bin/chromium-nosandbox;
     executable = true;
     force = true;
@@ -611,7 +643,9 @@ in
         Restart = "on-failure";
         RestartSec = "3s";
         Environment = [
-          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:%h/racket/bin:%h/go/bin:/opt/gerbil/bin:/usr/local/bin:/usr/bin:/bin"
+          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:${
+            lib.optionalString (!isWorkMachine) "%h/racket/bin:"
+          }%h/go/bin:/opt/gerbil/bin:/usr/local/bin:/usr/bin:/bin"
           "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
         ];
       };
