@@ -2,6 +2,16 @@ onboarding = false
 [terminal]
 new_cwd = "follow"
 
+[keys]
+previous_workspace = "prefix+{"
+next_workspace = "prefix+}"
+switch_workspace = "prefix+shift+1..9"
+previous_agent = "prefix+comma"
+next_agent = "prefix+."
+focus_agent = "prefix+alt+1..9"
+open_worktree = "prefix+shift+o"
+remove_worktree = "prefix+alt+d"
+
 [[keys.command]]
 key = "prefix+f"
 type = "plugin_action"
@@ -15,7 +25,7 @@ command = "sessionizer.worktree-open"
 description = "open worktree workspace"
 
 [[keys.command]]
-key = "prefix+tab"
+key = "prefix+backtick"
 type = "plugin_action"
 command = "third774.last-workspace.toggle"
 description = "last workspace"
@@ -25,7 +35,7 @@ agent_panel_sort = "priority"
 show_agent_labels_on_pane_borders = true
 
 [ui.toast]
-delivery = "terminal"
+delivery = "herdr"
 
 [theme]
 name = "terminal"

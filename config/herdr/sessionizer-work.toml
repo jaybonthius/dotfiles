@@ -6,7 +6,7 @@ roots = [
   "~/docker",
   "~/Code/workbench-*",
   "~/*-workbench/repos/*",
-  "~/dotfiles",
+  "~",
 ]
 git_only = true
 depth = 1
