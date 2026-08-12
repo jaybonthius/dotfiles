@@ -192,6 +192,8 @@ in
 
   home.sessionVariables = {
     COLORTERM = "truecolor";
+    EDITOR = "emacsclient -t -a emacs";
+    VISUAL = "emacsclient -t -a emacs";
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
