@@ -3,6 +3,10 @@
 Always-on guidance loaded by pi (`~/.pi/agent/AGENTS.md`). Keep it short and
 high-signal.
 
+## Evidence and explanations
+
+Distinguish observed facts, hard constraints, documented rationale, inference, and owner decisions in every answer. When asked why existing code or structure exists, do not treat tool defaults, current configuration, or references among repository-owned files as justification; they establish mechanism, likely origin, or change impact. Search documentation, comments, decision records, issues, and relevant history for explicit rationale. If none is evidenced, say so rather than inventing one, label any inference, and evaluate the choice against concrete current requirements. Include only facts that bear on the question.
+
 ## Planning: clarify before proposing
 
 Before creating or presenting a plan, use Pi's structured question tool to resolve
@@ -27,7 +31,7 @@ workarounds without owner approval.
 
 ## Code exploration: prefer the knowledge graph over grep
 
-For **structural** questions about a codebase, use the native **`cbm_*` tools**
+For structural **what/where/how** questions about a codebase, use the native **`cbm_*` tools**
 (from the pi-codebase-memory-mcp extension) instead of crawling with
 grep/find/read. This includes:
 
