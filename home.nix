@@ -237,6 +237,17 @@ in
 
   programs.fish = {
     enable = true;
+    # Nix puts ~/.nix-profile/bin on PATH from /etc/profile.d/nix.sh, which
+    # only POSIX login shells read. Since install.sh started chsh-ing fish to
+    # be the login shell, nothing sourced it anymore and the entire nix
+    # profile (starship, zoxide, herdr, ...) fell off PATH. Nix ships a fish
+    # port of that script; source it, and do it from shellInit so PATH is
+    # right before interactiveShellInit runs `starship init fish`.
+    shellInit = ''
+      if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+          source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
+      end
+    '';
     interactiveShellInit = builtins.readFile ./config/fish/config.fish;
   };
 
