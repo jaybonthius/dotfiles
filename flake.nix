@@ -15,6 +15,10 @@
       url = "github:getpaseo/paseo";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    workmux = {
+      url = "github:raine/workmux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     herdr = {
       url = "github:herdrdev/herdr/v0.8.0";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -35,6 +39,7 @@
       home-manager,
       minimal-emacs,
       paseo,
+      workmux,
       herdr,
       herdr-sessionizer,
       herdr-last-workspace,
@@ -56,6 +61,7 @@
             inherit
               minimal-emacs
               paseo
+              workmux
               herdr
               herdr-sessionizer
               herdr-last-workspace

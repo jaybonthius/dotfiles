@@ -4,6 +4,7 @@
   lib,
   minimal-emacs,
   paseo,
+  workmux,
   herdr,
   herdr-sessionizer,
   herdr-last-workspace,
@@ -168,6 +169,7 @@ in
     [
       # Shell & terminal
       tmux
+      workmux.packages.${pkgs.system}.default
       zellij
       herdrPackage
       bun
@@ -584,6 +586,15 @@ in
 
   xdg.configFile."tmux/themes" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/themes";
+    force = true;
+  };
+
+  # ── Workmux ─────────────────────────────────────────────────────────
+
+  # Global personal defaults. Repositories can add a .workmux.yaml when they
+  # need project-specific pane layouts, hooks, or file operations.
+  xdg.configFile."workmux/config.yaml" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/workmux/config.yaml";
     force = true;
   };
 

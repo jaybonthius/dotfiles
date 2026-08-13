@@ -1,0 +1,6 @@
+# Personal defaults shared by every workmux project.
+# Add project-specific overrides in that repository's .workmux.yaml.
+nerdfont: true
+
+# Let workmux add agent-status icons to tmux's window list.
+status_format: true
