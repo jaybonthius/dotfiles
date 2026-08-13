@@ -13,15 +13,22 @@ case "$mode" in
   dark)
     color_scheme="prefer-dark"
     gtk_theme="Adwaita-dark"
+    tmux_theme="modus_vivendi_tinted.tmux"
     ;;
   light)
     color_scheme="prefer-light"
     gtk_theme="Adwaita"
+    tmux_theme="modus_operandi_tinted.tmux"
     ;;
   *)
     exit 0
     ;;
 esac
+
+# Re-theme an existing tmux server without starting one just for the sync.
+if command -v tmux >/dev/null 2>&1 && tmux list-sessions >/dev/null 2>&1; then
+  tmux source-file "${HOME}/.config/tmux/themes/${tmux_theme}" >/dev/null 2>&1 || true
+fi
 
 # gsettings requires a user bus; in non-GUI/headless sessions this may be absent.
 if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then

@@ -715,7 +715,7 @@ in
 
     theme-state-to-gsettings = {
       Unit = {
-        Description = "Sync ~/.local/state/theme to GNOME gsettings";
+        Description = "Sync ~/.local/state/theme to GNOME and tmux";
         After = [ "default.target" ];
       };
       Service = {
@@ -732,7 +732,7 @@ in
   systemd.user.paths = lib.mkIf pkgs.stdenv.isLinux {
     theme-state-to-gsettings = {
       Unit = {
-        Description = "Watch ~/.local/state/theme and sync GNOME appearance";
+        Description = "Watch ~/.local/state/theme and sync GNOME/tmux appearance";
       };
       Path = {
         PathChanged = [
