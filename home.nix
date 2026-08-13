@@ -472,6 +472,11 @@ in
     force = true;
   };
 
+  home.file.".pi/agent/APPEND_SYSTEM.md" = lib.mkIf (!isWorkMachine) {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/APPEND_SYSTEM.md";
+    force = true;
+  };
+
   home.file.".agents/skills/codebase-memory-cli" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/codebase-memory-cli";
     force = true;
