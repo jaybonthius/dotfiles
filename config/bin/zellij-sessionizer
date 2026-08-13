@@ -6,7 +6,7 @@ if [[ -n "${ZELLIJ_SESSIONIZER_SEARCH_PATHS:-}" ]]; then
   SEARCH_PATHS=(${ZELLIJ_SESSIONIZER_SEARCH_PATHS})
 else
   # Preserve the upstream workbench roots and local project roots.
-  SEARCH_PATHS=("$HOME/vdr-agentic-workbench" "$HOME/vdr-agentic-workbench/repos/services" "$HOME/vdr-agentic-workbench/repos/habitat" "$HOME/vdr-agentic-workbench/repos/docs" "$HOME/vdr-agentic-workbench/repos/tools" "$HOME/repos" "$HOME/code" "$HOME/Code" "/Users/jay.bonthius/Code" "$HOME/docker" "$HOME/Code/workbench-gerbil" "$HOME/Code/workbench-go")
+  SEARCH_PATHS=("$HOME/vdr-agentic-workbench" "$HOME/vdr-agentic-workbench/repos/services" "$HOME/vdr-agentic-workbench/repos/habitat" "$HOME/vdr-agentic-workbench/repos/docs" "$HOME/vdr-agentic-workbench/repos/tools" "$HOME/repos" "$HOME/code" "$HOME/Code" "$HOME/docker" "$HOME/Code/workbench-gerbil" "$HOME/Code/workbench-go")
 fi
 
 if [[ -n "${ZELLIJ_SESSIONIZER_SPECIFIC_PATHS:-}" ]]; then

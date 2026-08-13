@@ -140,70 +140,18 @@
   :config
   (add-hook 'eat-mode-hook (lambda () (meow-mode -1))))
 
-;; jb-opencode: launch the OpenCode TUI in an Eat terminal.
-;; Defined outside `use-package eat' so the function and keybinding
-;; exist at init time (eat's :config is deferred until first use).
-;; With prefix arg, uses `consult-dir' to pick the directory first
-;; via its public `consult-dir-default-command' extension point.
-(defvar consult-dir-default-command)
-
-(defun jb-opencode--in-dir ()
-  "Launch OpenCode in `default-directory' via Eat.
-Buffer is named *oc:session:dir* when an easysession is active,
-or *oc:dir* otherwise.  Intended as a `consult-dir-default-command'
-action or direct call."
-  (interactive)
-  (let* ((dir-name (file-name-nondirectory
-                    (directory-file-name default-directory)))
-         (session (and (fboundp 'easysession-get-session-name)
-                       (easysession-get-session-name)))
-         (buf-name (if session
-                       (format "*oc:%s:%s*" session dir-name)
-                     (format "*oc:%s*" dir-name)))
-         (buf (eat "opencode" t)))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf
-        (rename-buffer buf-name t)))))
-
-(defun jb-opencode (arg)
-  "Launch OpenCode TUI in an Eat terminal.
-Without prefix ARG, runs in the current directory.
-With \\[universal-argument], pick the directory first via `consult-dir'
-\(projects, recent dirs, bookmarks, etc.)."
-  (interactive "P")
-  (if arg
-      (let ((consult-dir-default-command #'jb-opencode--in-dir))
-        (call-interactively #'consult-dir))
-    (jb-opencode--in-dir)))
-
-(global-set-key (kbd "C-c a o") #'jb-opencode)
-
-(defun jb-opencode-home ()
-  "Launch OpenCode in the home directory via Eat."
-  (interactive)
-  (let ((default-directory (expand-file-name "~/")))
-    (jb-opencode--in-dir)))
-
-(global-set-key (kbd "C-c a ~") #'jb-opencode-home)
-
-(defun jb-opencode-dir ()
-  "Launch OpenCode in a directory chosen via `read-directory-name'."
-  (interactive)
-  (let ((default-directory (read-directory-name "OpenCode directory: ")))
-    (jb-opencode--in-dir)))
-
-(global-set-key (kbd "C-c a d") #'jb-opencode-dir)
-
 ;; Terminal mouse support.
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
 
 ;; Nix Home Manager: apply dotfiles changes from within Emacs.
 (defun jb-home-manager-switch-command ()
-  "Return the `systemd-run' command used for Home Manager switch."
-  (format "systemd-run --user --collect --pipe -E PATH=%s --unit=hm-switch-%s ~/dotfiles/install.sh switch"
-          (shell-quote-argument (getenv "PATH"))
-          (format-time-string "%s")))
+  "Return the platform-appropriate Home Manager switch command."
+  (if (eq system-type 'darwin)
+      "~/dotfiles/install.sh switch"
+    (format "systemd-run --user --collect --pipe -E PATH=%s --unit=hm-switch-%s ~/dotfiles/install.sh switch"
+            (shell-quote-argument (getenv "PATH"))
+            (format-time-string "%s"))))
 
 (defun jb-home-manager-switch ()
   "Run `home-manager switch' in an Eat terminal buffer.
@@ -2666,27 +2614,22 @@ redundant static file server on a random port."
   (define-key org-mode-map (kbd "C-c C-v h") #'jb-org-preview-start))
 
 ;;; ============================================================================
-;;; AI: OpenCode agent interface
+;;; AI agent interfaces
 ;;; ============================================================================
 
 ;; agent-shell: native Emacs buffer to interact with LLM agents via ACP.
-;; Used here with the OpenCode agent (`opencode acp`).
 ;; Dependencies (shell-maker, acp) are pulled automatically from MELPA.
 (use-package agent-shell
   :ensure t
   :ensure-system-package
   (claude-agent-acp . "npm install -g @zed-industries/claude-agent-acp")
   :commands (agent-shell
-             agent-shell-opencode-start-agent
              agent-shell-anthropic-start-agent
              agent-shell-send-region
              agent-shell-send-current-file)
   :bind (("C-c a a" . agent-shell)
-         ("C-c a c" . agent-shell-opencode-start-agent)
          ("C-c a A" . agent-shell-anthropic-start-agent))
   :custom
-  (agent-shell-opencode-authentication
-   (agent-shell-opencode-make-authentication :none t))
   (agent-shell-anthropic-authentication
    (agent-shell-anthropic-make-authentication :login t))
   (agent-shell-anthropic-default-model-id "claude-opus-4-6")
@@ -2746,27 +2689,6 @@ redundant static file server on a random port."
   :bind ("C-c g A" . gptel-agent)
   :config
   (gptel-agent-update))
-
-;; plz: HTTP library required by opencode.el and its dependencies.
-(use-package plz
-  :ensure t)
-
-;; opencode: native Emacs UI for the OpenCode AI coding agent.
-;; Provides a comint-based chat interface, session management, project
-;; scoping, diff review, and notification support — all inside Emacs
-;; buffers rather than a TUI.  Connects to an opencode server via HTTP.
-;; Dependencies (plz-media-type, plz-event-source) are pulled transitively.
-(use-package opencode
-  :ensure (:host codeberg :repo "sczi/opencode.el")
-  :commands (opencode
-             opencode-connect
-             opencode-select-project
-             opencode-new-session
-             opencode-new-worktree
-             opencode-select-idle
-             opencode-visit-last-idle)
-  :bind (("C-c a O" . opencode)
-         ("C-c a P" . opencode-select-project)))
 
 ;; md-ts-mode: tree-sitter Markdown mode required by pi-coding-agent.
 ;; Use explicit recipe because Elpaca can fail to resolve `md-ts-mode'

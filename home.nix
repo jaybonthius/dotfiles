@@ -71,19 +71,35 @@ let
     };
   };
 
-  zellij-smart-switch = ./config/zellij/plugins/zellij-smart-switch.wasm;
-
-  # Tree-sitter knowledge-graph code intelligence server. Used by pi via the
-  # `codebase-memory` skill (CLI mode), not as an MCP server. The `-portable`
-  # release asset is fully static, so no autoPatchelf / runtime deps needed.
+  # Tree-sitter knowledge-graph code intelligence server for personal hosts.
   codebase-memory-mcp = pkgs.stdenv.mkDerivation rec {
     pname = "codebase-memory-mcp";
     version = "0.8.1";
 
-    src = pkgs.fetchurl {
-      url = "https://github.com/DeusData/codebase-memory-mcp/releases/download/v${version}/codebase-memory-mcp-linux-arm64-portable.tar.gz";
-      hash = "sha256-E1JqzCpqBpff88dj+0Q6QWWJvBCtixIBW2PYflFd1ys=";
-    };
+    src =
+      let
+        release =
+          {
+            "x86_64-linux" = {
+              asset = "codebase-memory-mcp-linux-amd64-portable.tar.gz";
+              hash = "sha256-arh6bAXQSd3ldwCAPKCrQZn88llzoGBmGK8Pzuc/Wr0=";
+            };
+            "aarch64-linux" = {
+              asset = "codebase-memory-mcp-linux-arm64-portable.tar.gz";
+              hash = "sha256-E1JqzCpqBpff88dj+0Q6QWWJvBCtixIBW2PYflFd1ys=";
+            };
+            "aarch64-darwin" = {
+              asset = "codebase-memory-mcp-darwin-arm64.tar.gz";
+              hash = "sha256-+9BHUJhSAhtURqERQbywo9Hcrr9uURJGCWDynwUsHFg=";
+            };
+          }
+          .${pkgs.stdenv.hostPlatform.system}
+            or (throw "codebase-memory-mcp: unsupported system ${pkgs.stdenv.hostPlatform.system}");
+      in
+      pkgs.fetchurl {
+        url = "https://github.com/DeusData/codebase-memory-mcp/releases/download/v${version}/${release.asset}";
+        inherit (release) hash;
+      };
 
     sourceRoot = ".";
 
@@ -97,7 +113,42 @@ let
       description = "Tree-sitter knowledge-graph code intelligence server";
       homepage = "https://github.com/DeusData/codebase-memory-mcp";
       license = lib.licenses.mit;
-      platforms = [ "aarch64-linux" ];
+      platforms = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+      ];
+    };
+  };
+
+  # Stable signed/notarized Apple Silicon build from jimeh/emacs-builds.
+  jimeh-emacs = pkgs.stdenvNoCC.mkDerivation {
+    pname = "jimeh-emacs";
+    version = "30.2-1";
+
+    src = pkgs.fetchurl {
+      url = "https://github.com/jimeh/emacs-builds/releases/download/Emacs-30.2-1/Emacs.2025-08-14.636f166.emacs-30-2-1.macOS-11.arm64.dmg";
+      hash = "sha256-gncCHtPrcWMzEgY4/8JWXBuJPpFG4Gc4uzUhYw856xk=";
+    };
+
+    nativeBuildInputs = [ pkgs.undmg ];
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+      mkdir -p "$out/Applications" "$out/bin"
+      cp -R Emacs.app "$out/Applications/Emacs.app"
+      for executable in "$out/Applications/Emacs.app/Contents/MacOS/bin/"*; do
+        ln -s "$executable" "$out/bin/$(basename "$executable")"
+      done
+      runHook postInstall
+    '';
+
+    meta = {
+      description = "Signed and notarized Emacs.app build for macOS";
+      homepage = "https://github.com/jimeh/emacs-builds";
+      license = lib.licenses.gpl3Plus;
+      platforms = [ "aarch64-darwin" ];
     };
   };
 
@@ -138,7 +189,12 @@ in
       zoxide
       git-lfs
       postgresql
-      netcat-openbsd
+      gh
+      tree
+      flock
+      ruff
+      basedpyright
+      drawio
 
       # Fonts
       fira-code
@@ -151,8 +207,11 @@ in
     ++ lib.optionals (!stdenv.isLinux) [
       gcc
     ]
-    ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
-      codebase-memory-mcp
+    ++ lib.optionals stdenv.isLinux [
+      netcat-openbsd
+    ]
+    ++ lib.optionals stdenv.isDarwin [
+      netcat
     ]
     ++ lib.optionals (!(stdenv.isLinux && stdenv.hostPlatform.isx86_64)) [
       go
@@ -170,6 +229,7 @@ in
     # Nothing here is needed on work machines; see `isWorkMachine` above.
     # Keeps roughly 1.6 GiB of closure off work hosts.
     ++ lib.optionals (!isWorkMachine) [
+      codebase-memory-mcp
       paseo.packages.${pkgs.system}.paseo # CLI/daemon for headless personal hosts
       python3Packages.grip # markdown preview
       typst
@@ -186,6 +246,8 @@ in
     ]
     ++ lib.optionals stdenv.isDarwin [
       fswatch
+      ghostty-bin
+      jimeh-emacs
     ];
 
   # ── Environment variables ───────────────────────────────────────────
@@ -198,19 +260,11 @@ in
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
   }
-  // lib.optionalAttrs (!isWorkMachine) {
-    # Browser automation (agent-browser / pi-agent-browser-native): use the
-    # Nix Chromium via the --no-sandbox wrapper since this host has no
-    # Chrome-for-Testing ARM64 build and no configured SUID sandbox.
-    # Only where Chromium is actually installed, so it never points at
-    # a wrapper wrapping a missing binary.
+  // lib.optionalAttrs (pkgs.stdenv.isLinux && !isWorkMachine) {
+    # Browser automation uses Nix Chromium only where Chromium is installed.
     AGENT_BROWSER_EXECUTABLE_PATH = "$HOME/bin/chromium-nosandbox";
   }
-  // lib.optionalAttrs (pkgs.stdenv.isLinux && pkgs.stdenv.hostPlatform.isAarch64) {
-    # Pin the binary the pi-codebase-memory-mcp extension spawns.
-    # Only where the Nix-managed aarch64 portable build actually exists.
-    # On other arches leave unset so the extension falls back to
-    # ~/.local/bin/codebase-memory-mcp (the install.sh build).
+  // lib.optionalAttrs (!isWorkMachine) {
     CBM_MCP_BIN = "$HOME/.nix-profile/bin/codebase-memory-mcp";
   };
 
@@ -227,7 +281,7 @@ in
     "$HOME/racket/bin"
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
-    "/Applications/Emacs.app/Contents/MacOS/bin"
+    "${jimeh-emacs}/Applications/Emacs.app/Contents/MacOS/bin"
   ];
 
   # ── Fish shell ──────────────────────────────────────────────────────
@@ -399,42 +453,29 @@ in
     force = true;
   };
 
-  # ── Pi Coding Agent ──────────────────────────────────────────────────
-  # Base config (personal settings + packages). Merged with
-  # settings.local.json (machine-specific overrides, gitignored) at
-  # activation time to produce the final ~/.pi/agent/settings.json.
-
-  home.file.".pi/agent/settings.base.json" = {
+  # ── Pi Coding Agent (personal machines only) ─────────────────────────
+  # Existing Pi state on pairing hosts is intentionally left unmanaged.
+  home.file.".pi/agent/settings.base.json" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
     force = true;
   };
 
-  # Pi MCP Adapter's global server configuration.
-  home.file.".pi/agent/mcp.json" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/mcp.json";
-    force = true;
-  };
-
-  home.file.".pi/agent/extensions" = {
+  home.file.".pi/agent/extensions" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/extensions";
     force = true;
   };
 
-  # Global always-on pi instructions.
-  home.file.".pi/agent/AGENTS.md" = {
+  home.file.".pi/agent/AGENTS.md" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/AGENTS.md";
     force = true;
   };
 
-  # Global Pi skills managed from dotfiles.
-  # The codebase-memory package ships the primary skill and native tools; this
-  # CLI skill remains only as a fallback when the extension is unavailable.
-  home.file.".agents/skills/codebase-memory-cli" = {
+  home.file.".agents/skills/codebase-memory-cli" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/codebase-memory-cli";
     force = true;
   };
 
-  home.file.".agents/skills/actual-categorize" = {
+  home.file.".agents/skills/actual-categorize" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/actual-categorize";
     force = true;
   };
@@ -522,13 +563,17 @@ in
   # long-lived codebase-memory-mcp server child otherwise keeps headless pi
   # alive forever (see genPiDiscordConfig below). Drop-ins survive piscord
   # regenerating the main unit; `%h` = $HOME.
-  xdg.configFile."systemd/user/pi-discord-gateway.service.d/override.conf".text = ''
-    [Service]
-    Environment=PATH=%h/.local/share/pnpm:%h/.npm-global/bin:%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
-    Environment=PI_CODING_AGENT_DIR=%h/.pi/discord-agent
-    ExecStart=
-    ExecStart=%h/.local/share/pnpm/piscord start
-  '';
+  xdg.configFile."systemd/user/pi-discord-gateway.service.d/override.conf" =
+    lib.mkIf (pkgs.stdenv.isLinux && !isWorkMachine)
+      {
+        text = ''
+          [Service]
+          Environment=PATH=%h/.local/share/pnpm:%h/.npm-global/bin:%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
+          Environment=PI_CODING_AGENT_DIR=%h/.pi/discord-agent
+          ExecStart=
+          ExecStart=%h/.local/share/pnpm/piscord start
+        '';
+      };
 
   # ── Tmux ────────────────────────────────────────────────────────────
 
@@ -585,11 +630,6 @@ in
     force = true;
   };
 
-  xdg.configFile."zellij/plugins/zellij-smart-switch.wasm" = {
-    source = zellij-smart-switch;
-    force = true;
-  };
-
   # ── User scripts (~/bin/) ───────────────────────────────────────────
 
   home.file."bin/opener-open" = {
@@ -611,7 +651,7 @@ in
 
   # Chromium --no-sandbox wrapper for agent browser automation.
   # Personal-only: the Chromium it wraps is gated the same way.
-  home.file."bin/chromium-nosandbox" = lib.mkIf (!isWorkMachine) {
+  home.file."bin/chromium-nosandbox" = lib.mkIf (pkgs.stdenv.isLinux && !isWorkMachine) {
     source = ./config/bin/chromium-nosandbox;
     executable = true;
     force = true;
@@ -629,7 +669,13 @@ in
     force = true;
   };
 
-  home.file."bin/theme-state-to-gsettings" = {
+  home.file."bin/zellij-session-name" = {
+    source = ./config/bin/zellij-session-name;
+    executable = true;
+    force = true;
+  };
+
+  home.file."bin/theme-state-to-gsettings" = lib.mkIf pkgs.stdenv.isLinux {
     source = ./config/bin/theme-state-to-gsettings;
     executable = true;
     force = true;
@@ -707,7 +753,7 @@ in
     enable = true;
     config = {
       ProgramArguments = [
-        "/Applications/Emacs.app/Contents/MacOS/Emacs"
+        "${jimeh-emacs}/Applications/Emacs.app/Contents/MacOS/Emacs"
         "--fg-daemon"
       ];
       KeepAlive = true;
@@ -778,10 +824,14 @@ in
     run rm -f "$PNPM_HOME/node" "$PNPM_HOME/npm" "$PNPM_HOME/npx"
     run rm -rf "$PNPM_HOME/nodejs"
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
-      run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 deepmerge @fission-ai/openspec@latest @earendil-works/pi-coding-agent skills agent-browser@0.30.1 piscord
+      run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 \
+        deepmerge @fission-ai/openspec@latest skills ${
+          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent agent-browser@0.30.1 piscord"
+        }
   '';
 
-  # Install Caveman skills globally for Claude Code and Pi.
+  # Install Caveman for Claude Code everywhere and additionally for Pi on
+  # personal machines.
   home.activation.installCavemanSkill =
     lib.hm.dag.entryAfter
       [
@@ -792,12 +842,13 @@ in
         export PNPM_HOME="$HOME/.local/share/pnpm"
         PATH="${pkgs.nodejs}/bin:${pkgs.git}/bin:$PNPM_HOME:$PATH"
 
-        run ${pkgs.nodejs}/bin/npx -y skills add JuliusBrussee/caveman -g -a claude-code pi -y
+        run ${pkgs.nodejs}/bin/npx -y skills add JuliusBrussee/caveman -g \
+          -a claude-code ${lib.optionalString (!isWorkMachine) "pi"} -y
       '';
 
   # Install the reviewed Archify release globally for Pi. Pin the release so a
   # Home Manager switch cannot silently replace the executable skill contents.
-  home.activation.installArchifySkill =
+  home.activation.installArchifySkill = lib.mkIf (!isWorkMachine) (
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
@@ -808,7 +859,8 @@ in
         PATH="${pkgs.nodejs}/bin:${pkgs.git}/bin:$PNPM_HOME:$PATH"
 
         run ${pkgs.nodejs}/bin/npx -y skills add tt-a1i/archify@v2.13.0 -g -a pi -s archify --copy -y
-      '';
+      ''
+  );
 
   home.activation.installHerdrSessionizer = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PATH="${pkgs.bun}/bin:${pkgs.git}/bin:${herdrPackage}/bin:$PATH"
@@ -855,20 +907,22 @@ in
   # Seed settings.local.json once from the existing settings.json's
   # non-base keys. After seeding, the file is left alone so the user
   # can edit it freely.
-  home.activation.seedPiLocal = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    local="$HOME/.pi/agent/settings.local.json"
-    current="$HOME/.pi/agent/settings.json"
-    if [ ! -f "$local" ] && [ -f "$current" ]; then
-      run mkdir -p "$HOME/.pi/agent"
-      # Extract keys that are NOT in the base config
-      run ${pkgs.jq}/bin/jq '{
-        lastChangelogVersion: .lastChangelogVersion
-      } | with_entries(select(.value != null))' "$current" > "$local"
-    fi
-  '';
+  home.activation.seedPiLocal = lib.mkIf (!isWorkMachine) (
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      local="$HOME/.pi/agent/settings.local.json"
+      current="$HOME/.pi/agent/settings.json"
+      if [ ! -f "$local" ] && [ -f "$current" ]; then
+        run mkdir -p "$HOME/.pi/agent"
+        # Extract keys that are NOT in the base config
+        run ${pkgs.jq}/bin/jq '{
+          lastChangelogVersion: .lastChangelogVersion
+        } | with_entries(select(.value != null))' "$current" > "$local"
+      fi
+    ''
+  );
 
   # Merge base + local into settings.json on every activation.
-  home.activation.mergePiConfig =
+  home.activation.mergePiConfig = lib.mkIf (!isWorkMachine) (
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
@@ -892,7 +946,8 @@ in
         else
           run cp "$base" "$target"
         fi
-      '';
+      ''
+  );
 
   # Bot-only pi config dir for piscord (the Discord gateway). Mirrors the
   # interactive ~/.pi/agent/settings.json but drops pi-codebase-memory-mcp,
@@ -901,7 +956,7 @@ in
   # the trimmed package set into ~/.pi/discord-agent/npm on first run, and
   # auth.json is symlinked so the bot reuses the interactive login. The piscord
   # systemd unit points pi here via PI_CODING_AGENT_DIR (drop-in above).
-  home.activation.genPiDiscordConfig =
+  home.activation.genPiDiscordConfig = lib.mkIf (pkgs.stdenv.isLinux && !isWorkMachine) (
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
@@ -913,7 +968,8 @@ in
         run ${pkgs.jq}/bin/jq '.packages |= map(select(. != "npm:pi-codebase-memory-mcp"))' \
           "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
-      '';
+      ''
+  );
 
   # Local-only patch for pi-agent-browser-native 0.2.61. Its short runtime
   # prompt over-compresses the fuller docs from "respect explicit user stop
@@ -921,7 +977,7 @@ in
   # which prevents explicitly requested send/submit browser flows. Patch the
   # installed package copies after Pi package install/config generation so the
   # fix survives Home Manager switches and Pi package reinstalls.
-  home.activation.patchPiAgentBrowserNativePrompt =
+  home.activation.patchPiAgentBrowserNativePrompt = lib.mkIf (!isWorkMachine) (
     lib.hm.dag.entryAfter
       [
         "writeBoundary"
@@ -940,7 +996,8 @@ in
             run ${pkgs.python3}/bin/python3 -c 'import sys; p,o,n=sys.argv[1:]; s=open(p,encoding="utf-8").read(); open(p,"w",encoding="utf-8").write(s.replace(o,n) if o in s else s)' "$f" "$old" "$new"
           fi
         done
-      '';
+      ''
+  );
 
   # Merge base + local into settings.json on every activation.
   # Uses deepmerge-cli for proper recursive merge with array union.

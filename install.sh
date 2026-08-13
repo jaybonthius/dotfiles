@@ -81,7 +81,7 @@ switch() {
     # --impure allows home.nix to read $USER/$HOME via builtins.getEnv
     if ! command -v home-manager >/dev/null 2>&1; then
         info "Bootstrapping home-manager..."
-        nix run home-manager/master -- switch --impure --flake "$DOTFILES_DIR#$config"
+        nix run --inputs-from "$DOTFILES_DIR" home-manager -- switch --impure --flake "$DOTFILES_DIR#$config"
     else
         home-manager switch --impure --flake "$DOTFILES_DIR#$config"
     fi
@@ -126,18 +126,16 @@ post_setup_notes() {
     echo "     rm -rf ~/.config/emacs ~/.config/fish ~/.config/zellij"
     echo ""
     echo "  1. SSH key setup:"
-    echo "     ssh-keygen -t ed25519 -C \"jaybonthius@gmail.com\" -N \"\""
+    echo "     ssh-keygen -t ed25519 -C \"jaybonthius@gmail.com\""
+    if [ "$(uname -s)" = "Darwin" ]; then
+        echo "     /usr/bin/ssh-add --apple-use-keychain ~/.ssh/id_ed25519"
+        echo "     # In ~/.ssh/config, set AddKeysToAgent yes, UseKeychain yes,"
+        echo "     # and IdentityFile ~/.ssh/id_ed25519 for Host github.com."
+    fi
     echo "     cat ~/.ssh/id_ed25519.pub"
     echo "     # Add to: https://github.com/settings/ssh/new"
     echo ""
-    echo "  2. Install Python LSP:"
-    if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "aarch64" ]; then
-        echo "     uv tool install basedpyright"
-    else
-        echo "     (skipped: uv is only installed on Linux aarch64)"
-    fi
-    echo ""
-    echo "  3. Start Emacs daemon (first run only):"
+    echo "  2. Start Emacs daemon (first run only):"
     if [ "$(uname -s)" = "Darwin" ]; then
         echo "     # launchd agent is installed — just log out and back in,"
         echo "     # or start it now with:"

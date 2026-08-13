@@ -47,7 +47,10 @@
       mkHome =
         system:
         home-manager.lib.homeManagerConfiguration {
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "drawio";
+          };
           modules = [ ./home.nix ];
           extraSpecialArgs = {
             inherit
