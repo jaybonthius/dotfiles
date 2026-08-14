@@ -37,6 +37,11 @@ let
 
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
 
+  mattPocockSkill = name: {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/${name}";
+    force = true;
+  };
+
   herdrPackage = herdr.packages.${pkgs.system}.default;
   zigPackage = zig.packages.${pkgs.system}.default;
 
@@ -506,66 +511,48 @@ in
     force = true;
   };
 
-  # Shared workflow skills extracted from project-local Pi skills.
-  # Project-local skills retain precedence until each repository is reviewed
-  # and migrated separately.
-  home.file.".agents/skills/code-review" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/code-review";
-    force = true;
-  };
+  # Matt Pocock's portable skill set, vendored from
+  # https://github.com/mattpocock/skills at 8b78b531ab965735c5dc74f6f7a219e1e37326df.
+  home.file.".agents/skills/ask-matt" = mattPocockSkill "ask-matt";
+  home.file.".agents/skills/claude-handoff" = mattPocockSkill "claude-handoff";
+  home.file.".agents/skills/code-review" = mattPocockSkill "code-review";
+  home.file.".agents/skills/codebase-design" = mattPocockSkill "codebase-design";
+  home.file.".agents/skills/diagnosing-bugs" = mattPocockSkill "diagnosing-bugs";
+  home.file.".agents/skills/domain-modeling" = mattPocockSkill "domain-modeling";
+  home.file.".agents/skills/git-guardrails-claude-code" =
+    mattPocockSkill "git-guardrails-claude-code";
+  home.file.".agents/skills/grill-me" = mattPocockSkill "grill-me";
+  home.file.".agents/skills/grill-with-docs" = mattPocockSkill "grill-with-docs";
+  home.file.".agents/skills/grilling" = mattPocockSkill "grilling";
+  home.file.".agents/skills/handoff" = mattPocockSkill "handoff";
+  home.file.".agents/skills/implement" = mattPocockSkill "implement";
+  home.file.".agents/skills/improve-codebase-architecture" =
+    mattPocockSkill "improve-codebase-architecture";
+  home.file.".agents/skills/loop-me" = mattPocockSkill "loop-me";
+  home.file.".agents/skills/migrate-to-shoehorn" = mattPocockSkill "migrate-to-shoehorn";
+  home.file.".agents/skills/prototype" = mattPocockSkill "prototype";
+  home.file.".agents/skills/research" = mattPocockSkill "research";
+  home.file.".agents/skills/resolving-merge-conflicts" = mattPocockSkill "resolving-merge-conflicts";
+  home.file.".agents/skills/scaffold-exercises" = mattPocockSkill "scaffold-exercises";
+  home.file.".agents/skills/setup-matt-pocock-skills" = mattPocockSkill "setup-matt-pocock-skills";
+  home.file.".agents/skills/setup-pre-commit" = mattPocockSkill "setup-pre-commit";
+  home.file.".agents/skills/setup-ts-deep-modules" = mattPocockSkill "setup-ts-deep-modules";
+  home.file.".agents/skills/tdd" = mattPocockSkill "tdd";
+  home.file.".agents/skills/teach" = mattPocockSkill "teach";
+  home.file.".agents/skills/to-questionnaire" = mattPocockSkill "to-questionnaire";
+  home.file.".agents/skills/to-spec" = mattPocockSkill "to-spec";
+  home.file.".agents/skills/to-tickets" = mattPocockSkill "to-tickets";
+  home.file.".agents/skills/triage" = mattPocockSkill "triage";
+  home.file.".agents/skills/wait-what" = mattPocockSkill "wait-what";
+  home.file.".agents/skills/wayfinder" = mattPocockSkill "wayfinder";
+  home.file.".agents/skills/wizard" = mattPocockSkill "wizard";
+  home.file.".agents/skills/writing-beats" = mattPocockSkill "writing-beats";
+  home.file.".agents/skills/writing-for-agents" = mattPocockSkill "writing-for-agents";
+  home.file.".agents/skills/writing-fragments" = mattPocockSkill "writing-fragments";
+  home.file.".agents/skills/writing-shape" = mattPocockSkill "writing-shape";
 
   home.file.".agents/skills/develop" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/develop";
-    force = true;
-  };
-
-  home.file.".agents/skills/diagnosing-bugs" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/diagnosing-bugs";
-    force = true;
-  };
-
-  home.file.".agents/skills/grilling" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/grilling";
-    force = true;
-  };
-
-  home.file.".agents/skills/handoff" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/handoff";
-    force = true;
-  };
-
-  home.file.".agents/skills/implement" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/implement";
-    force = true;
-  };
-
-  home.file.".agents/skills/research" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/research";
-    force = true;
-  };
-
-  home.file.".agents/skills/tdd" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/tdd";
-    force = true;
-  };
-
-  home.file.".agents/skills/domain-modeling" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/domain-modeling";
-    force = true;
-  };
-
-  home.file.".agents/skills/codebase-design" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/codebase-design";
-    force = true;
-  };
-
-  home.file.".agents/skills/to-spec" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/to-spec";
-    force = true;
-  };
-
-  home.file.".agents/skills/to-tickets" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/to-tickets";
     force = true;
   };
 

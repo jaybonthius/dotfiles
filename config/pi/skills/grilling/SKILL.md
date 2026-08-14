@@ -1,23 +1,22 @@
 ---
 name: grilling
-description: Resolve genuine product, behavior, persistence, security, compatibility, scope, or architecture decisions through focused questions.
-license: MIT; adapted from Matt Pocock skills@9603c1c
+description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 ---
 
-# Grilling
+Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Facts belong to repository inspection, tests, and primary-source research. Do not ask the owner for facts an agent can establish.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled — the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-For each unresolved decision:
+Each question should be formatted like so:
 
-1. State the decision and its consequence.
-2. Give a **Recommended** answer and a meaningful alternative when one exists.
-3. Use a concrete scenario to expose ambiguity when useful.
-4. Ask one focused question.
-5. Wait for the answer before asking a dependent question.
+```
+❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
 
-Stop when the outcome, scope, non-goals, authoritative state, public acceptance seam, and validation are understood.
+➡️ <your recommended answer>
+```
 
-Do not begin implementation while a required decision remains open. Continue to implementation only after shared understanding is settled and implementation is requested.
+Each round the user answers reshapes the tree — settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
-Create durable domain or architecture documentation only when the settled result will be reused and meets the applicable artifact policy. Do not create documentation merely because a design conversation occurred.
+Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it — don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report — ask the rest of the frontier now. The _decisions_ are the user's — put each to them and wait.
+
+The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.

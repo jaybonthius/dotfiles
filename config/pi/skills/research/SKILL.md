@@ -1,19 +1,12 @@
 ---
 name: research
-description: Investigate a bounded question using repository evidence and high-trust primary sources.
-license: MIT; adapted from Matt Pocock skills@9603c1c
+description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
 ---
 
-# Research
+Spin up a **background agent** to do the research, so you keep working while it reads.
 
-Investigate the exact question, not a broad adjacent topic.
+Its job:
 
-1. Inspect relevant source, tests, documentation, configuration, decisions, and existing research.
-2. For structural questions, use codebase-aware tools when available; verify important conclusions in direct source.
-3. Use primary sources for external claims, preferring official documentation, specifications, release notes, and source.
-4. State the answer, evidence, confidence, implementation implications when requested, and unresolved gaps.
-5. Stop after answering unless planning or implementation was explicitly requested.
-
-Do not ask for facts that repository or primary-source research can establish. Do not decide product behavior, allocate work, or create tickets.
-
-A standalone research request is read-only. Return findings directly; an artifact path or worker status never replaces the answer. Create a durable research note only when the owner requests one or an approved contract requires it; preserve reusable conclusions and citations, not transcripts, tool status, or progress logs.
+1. Investigate the question against **primary sources** — official docs, source code, specs, first-party APIs — not a secondary write-up of them. Follow every claim back to the source that owns it.
+2. Write the findings to a single Markdown file, citing each claim's source.
+3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
