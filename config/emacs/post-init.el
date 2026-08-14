@@ -56,13 +56,13 @@
   :config
   (global-kkp-mode 1))
 
-;; clipetty: send kills to the system clipboard over SSH/tmux via OSC 52.
+;; clipetty: send kills to the system clipboard over SSH via OSC 52.
 ;; Clipetty writes the escape sequence to $SSH_TTY to bypass multiplexers that
 ;; swallow OSC 52. That variable is inherited from whichever SSH session started
 ;; the mux server, so it goes stale on reconnect and the write fails with
 ;; "permission denied, /dev/pts/N" (upstream issues #15/#20). Clearing it makes
-;; clipetty fall back to /dev/tty, this pane's own pty; herdr and zellij both
-;; relay OSC 52 upward themselves, and clipetty still DCS-wraps under tmux.
+;; clipetty fall back to /dev/tty, this pane's own pty; Herdr and Zellij both
+;; relay OSC 52 upward themselves.
 (use-package clipetty
   :ensure t
   :init (setenv "SSH_TTY" nil)

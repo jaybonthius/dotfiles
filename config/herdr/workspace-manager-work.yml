@@ -1,0 +1,20 @@
+# Declarative layout applied by herdr-plugin-workspace-manager to every new
+# linked worktree created through Herdr. Main repository workspaces are skipped.
+layouts:
+  - id: project
+    tabs:
+      - title: editor
+        panes:
+          - title: editor
+            command: emacs-open-context
+      - title: claude
+        panes:
+          - title: claude
+            command: agent-open-context claude
+      - title: terminal
+        panes:
+          - title: terminal
+
+workspaces:
+  - path: ~/Code/worktrees
+    defaultLayout: project

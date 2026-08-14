@@ -42,17 +42,17 @@
     "herdr-sessionizer": {
       "flake": false,
       "locked": {
-        "lastModified": 1785934738,
-        "narHash": "sha256-tht0Sb43CvNjtyTgGi6ZofV7ALIcogGkFiXKFnB3nwI=",
+        "lastModified": 1786173492,
+        "narHash": "sha256-U58FYM1Dnm9pDaoD2RaPNBx/tzQcm7cIfkSu8fAGDI0=",
         "owner": "andrewchng",
         "repo": "herdr-sessionizer",
-        "rev": "003785258f516b100370b3dd97688cf96c8679b5",
+        "rev": "6ce092f659f139f50f41f1d33700be7501599349",
         "type": "github"
       },
       "original": {
         "owner": "andrewchng",
         "repo": "herdr-sessionizer",
-        "rev": "003785258f516b100370b3dd97688cf96c8679b5",
+        "rev": "6ce092f659f139f50f41f1d33700be7501599349",
         "type": "github"
       }
     },
@@ -136,8 +136,7 @@
         "home-manager": "home-manager",
         "minimal-emacs": "minimal-emacs",
         "nixpkgs": "nixpkgs",
-        "paseo": "paseo",
-        "workmux": "workmux"
+        "paseo": "paseo"
       }
     },
     "rust-overlay": {
@@ -158,26 +157,6 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "workmux": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1786308963,
-        "narHash": "sha256-FvoxyrBcnPg7X7n1jbg3BHeRR1nbsFdYWQmUj1YPte8=",
-        "owner": "raine",
-        "repo": "workmux",
-        "rev": "d76f690362aa7d4bcb360a597743e91410170093",
-        "type": "github"
-      },
-      "original": {
-        "owner": "raine",
-        "repo": "workmux",
         "type": "github"
       }
     }

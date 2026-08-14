@@ -68,7 +68,7 @@ fish_add_path $HOME/.npm-global/bin
 # Force pi to use zellij as the subagent multiplexer backend
 set -gx PI_SUBAGENT_MUX zellij
 
-# Tell subagent extension we're fish (SHELL may say /bin/bash due to tmux default-shell)
+# Tell subprocesses and agent extensions that the interactive shell is Fish.
 set -gx SHELL (which fish)
 
 # Restore pre-4.1-ish Option/Alt word motions/kills (instead of token-level defaults)

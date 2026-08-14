@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/razajamil/herdr-plugin-workspace-manager/main/schema.json
+# herdr-plugin-workspace-manager
+#
+# Copy this file to the plugin's config directory:
+#   herdr plugin config-dir herdr-plugin-workspace-manager
+# (typically ~/.config/herdr/plugins/config/herdr-plugin-workspace-manager/config.yml)
+#
+# A fallback path is also accepted:
+#   ~/.herdr/plugins/herdr-plugin-workspace-manager/config.yml
+
+# ---------------------------------------------------------------------------
+# layouts: named tab/pane templates.
+#
+# Each tab is built in ONE herdr request from a declarative tree:
+#   - The FIRST tab replaces the worktree's existing tab.
+#   - Each later tab is appended to the workspace.
+#   - The FIRST pane of a tab is that tab's root pane; each later pane splits
+#     from the previous pane in the same tab.
+#
+# pane.split direction:
+#   vertical   -> panes side by side       (herdr --direction right)  [default]
+#   horizontal -> panes stacked top/bottom  (herdr --direction down)
+#   right / down are also accepted literally.
+#
+# pane.size (optional): how big THIS pane is along the split axis -- columns for
+# a vertical split, rows for a horizontal one. Three forms:
+#   40      -> fixed 40 cells (columns/rows)
+#   "30%"   -> 30% of the space being split
+#   0.3     -> a fraction, same as "30%"
+# A fixed cell size is converted against the tab's cell area; on a later window
+# resize herdr rebalances proportionally. (The legacy `ratio` field still works
+# but is the inverse -- the fraction the PREVIOUS pane keeps -- so prefer `size`.
+# A pane can't set both.)
+#
+# pane.command: runs in YOUR interactive login shell, so .zshrc/.bash_profile
+#   setup (mise, asdf, nvm, aliases, PATH) applies. When it exits you're left at
+#   a prompt; set `persist: false` to let the pane close with the command.
+#
+# pane.agent (instead of command): starts a recognized coding agent with
+#   `herdr agent start`, which returns only once herdr has detected the agent
+#   and marked it ready for input -- so the layout knows it actually came up.
+#   Supported: pi, claude, codex, gemini, cursor, devin, agy, cline, omp,
+#   mastracode, opencode, copilot, kimi, kiro, droid, amp, grok, hermes, kilo,
+#   qodercli, maki.
+#   Companion keys: agentName (stable alias, [a-z][a-z0-9_-], unique among live
+#   agents), agentArgs (passed through to the agent), prompt (submitted once
+#   ready), agentTimeoutMs, promptTimeoutMs (setting it waits for the agent to
+#   settle; omit to submit and move on).
+#
+# env (optional, per layout and per pane): environment variables for the pane
+#   process. Pane entries win over layout entries. Values need no quoting.
+#
+# setup (optional, per layout):
+#   Runs ONE command on the single pane marked `setup: true`, before that pane's
+#   own command or agent. If `blocking: true`, no further tabs are spawned until
+#   it finishes. An agent on the setup pane always waits for setup regardless.
+#   At most ONE pane per layout may set `setup: true`.
+# ---------------------------------------------------------------------------
+layouts:
+  - id: web-app
+    env:
+      NODE_ENV: development
+    setup:
+      command: npm install
+      blocking: true
+    tabs:
+      - title: code
+        panes:
+          - title: agent
+            agent: claude
+            agentName: web-main
+            setup: true
+          - title: editor
+            command: nvim
+            split: vertical
+            size: "60%"        # editor takes 60% of the width; agent gets the rest
+      - title: server
+        panes:
+          - title: dev
+            command: npm run dev
+            env:
+              PORT: 3000
+          - title: shell
+            split: horizontal
+            size: 12            # a fixed 12-row shell under the dev server
+      - title: review
+        panes:
+          - title: agent
+            agent: opencode
+          - title: editor
+            command: nvim
+            split: vertical
+      - title: git
+        panes:
+          - title: lazygit
+            command: lazygit
+            persist: false      # closing lazygit closes the pane
+
+  # A trimmed variant for quick bug-fix branches: just an agent + editor. The
+  # agent is handed the task as soon as herdr reports it ready.
+  - id: web-app-hotfix
+    tabs:
+      - title: code
+        panes:
+          - title: agent
+            agent: claude
+            prompt: Read TASK.md and start on the fix described there.
+          - title: editor
+            command: nvim
+            split: vertical
+
+  # A docs/research variant: an editor and a shell, no dev server.
+  - id: web-app-docs
+    tabs:
+      - title: docs
+        panes:
+          - title: editor
+            command: nvim
+          - title: shell
+            split: vertical
+
+# ---------------------------------------------------------------------------
+# workspaces: map a repo (or a worktree directory) to a layout.
+#
+# When a new linked worktree is created, its repo is matched against these
+# entries. Each entry needs `repo` and/or `path`:
+#
+#   repo: the repo's main checkout path (its repo_root) -- RECOMMENDED. Stable
+#         regardless of where herdr stores worktrees. A bare repo name (e.g.
+#         `web-app`) also matches. `~` is expanded. The repo's own main checkout
+#         is never touched -- only linked worktrees of it.
+#   path: prefix-match the worktree's checkout path (more brittle -- herdr's
+#         worktrees dir is configurable).
+#
+# A `repo` match wins over a `path` match if both are present.
+#
+# Picking the layout for a matched workspace:
+#   layoutMatching (optional): an ordered list of branch-pattern rules. The
+#     first rule whose `worktreePattern` matches the new worktree's BRANCH name
+#     wins. `worktreePattern` is a glob matched against the whole branch name:
+#       *  matches any run of characters (including "/")
+#       ?  matches a single character
+#     e.g. `fix/rwr-*` matches `fix/rwr-142-login` but not `hotfix/rwr-1`.
+#     Ordering is yours -- list the most specific rules first.
+#   defaultLayout (optional): applied when no layoutMatching rule matches (or
+#     the worktree has no branch). If there's also no defaultLayout, nothing is
+#     applied to that worktree.
+# ---------------------------------------------------------------------------
+workspaces:
+  - repo: ~/code/web-app
+    defaultLayout: web-app
+    layoutMatching:
+      - title: Hotfix branches
+        worktreePattern: fix/rwr-*
+        layout: web-app-hotfix
+      - title: Docs / research branches
+        worktreePattern: docs/*
+        layout: web-app-docs

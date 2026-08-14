@@ -15,16 +15,12 @@
       url = "github:getpaseo/paseo";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    workmux = {
-      url = "github:raine/workmux";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     herdr = {
       url = "github:herdrdev/herdr/v0.8.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     herdr-sessionizer = {
-      url = "github:andrewchng/herdr-sessionizer/003785258f516b100370b3dd97688cf96c8679b5";
+      url = "github:andrewchng/herdr-sessionizer/6ce092f659f139f50f41f1d33700be7501599349";
       flake = false;
     };
     herdr-last-workspace = {
@@ -39,7 +35,6 @@
       home-manager,
       minimal-emacs,
       paseo,
-      workmux,
       herdr,
       herdr-sessionizer,
       herdr-last-workspace,
@@ -61,7 +56,6 @@
             inherit
               minimal-emacs
               paseo
-              workmux
               herdr
               herdr-sessionizer
               herdr-last-workspace

@@ -4,7 +4,6 @@
   lib,
   minimal-emacs,
   paseo,
-  workmux,
   herdr,
   herdr-sessionizer,
   herdr-last-workspace,
@@ -44,6 +43,13 @@ let
     version = "0.1.0";
     src = herdr-last-workspace;
     cargoLock.lockFile = "${herdr-last-workspace}/Cargo.lock";
+  };
+
+  herdrWorkspaceManagerPackage = pkgs.rustPlatform.buildRustPackage {
+    pname = "herdr-workspace-manager";
+    version = "0.6.0-vendored";
+    src = ./config/herdr/plugins/workspace-manager;
+    cargoLock.lockFile = ./config/herdr/plugins/workspace-manager/Cargo.lock;
   };
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
@@ -168,8 +174,6 @@ in
     with pkgs;
     [
       # Shell & terminal
-      tmux
-      workmux.packages.${pkgs.system}.default
       zellij
       herdrPackage
       bun
@@ -582,27 +586,6 @@ in
         '';
       };
 
-  # ── Tmux ────────────────────────────────────────────────────────────
-
-  xdg.configFile."tmux/tmux.conf" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/tmux.conf";
-    force = true;
-  };
-
-  xdg.configFile."tmux/themes" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/tmux/themes";
-    force = true;
-  };
-
-  # ── Workmux ─────────────────────────────────────────────────────────
-
-  # Global personal defaults. Repositories can add a .workmux.yaml when they
-  # need project-specific pane layouts, hooks, or file operations.
-  xdg.configFile."workmux/config.yaml" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/workmux/config.yaml";
-    force = true;
-  };
-
   # ── Herdr ───────────────────────────────────────────────────────────
 
   xdg.configFile."herdr/config.toml" = {
@@ -614,6 +597,13 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/herdr/${
       if isWorkMachine then "sessionizer-work" else "sessionizer-personal"
     }.toml";
+    force = true;
+  };
+
+  xdg.configFile."herdr/plugins/config/herdr-plugin-workspace-manager/config.yml" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/herdr/${
+      if isWorkMachine then "workspace-manager-work" else "workspace-manager-personal"
+    }.yml";
     force = true;
   };
 
@@ -731,7 +721,7 @@ in
 
     theme-state-to-gsettings = {
       Unit = {
-        Description = "Sync ~/.local/state/theme to GNOME and tmux";
+        Description = "Sync ~/.local/state/theme to GNOME";
         After = [ "default.target" ];
       };
       Service = {
@@ -748,7 +738,7 @@ in
   systemd.user.paths = lib.mkIf pkgs.stdenv.isLinux {
     theme-state-to-gsettings = {
       Unit = {
-        Description = "Watch ~/.local/state/theme and sync GNOME/tmux appearance";
+        Description = "Watch ~/.local/state/theme and sync GNOME appearance";
       };
       Path = {
         PathChanged = [
@@ -782,9 +772,6 @@ in
   home.activation.compileTerminfo = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ -f "${./config/terminfo/xterm-ghostty.ti}" ]; then
       run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/xterm-ghostty.ti}"
-    fi
-    if [ -f "${./config/terminfo/tmux-direct.ti}" ]; then
-      run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/tmux-direct.ti}"
     fi
   '';
 
@@ -842,7 +829,7 @@ in
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
       run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 \
         deepmerge @fission-ai/openspec@latest skills ${
-          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent agent-browser@0.30.1 piscord"
+          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent agent-browser@0.33.2 piscord"
         }
   '';
 
@@ -910,6 +897,24 @@ in
       install -Dm755 ${herdrLastWorkspacePackage}/bin/herdr-last-workspace \
         "$target_dir/target/release/herdr-last-workspace"
       ${herdrPackage}/bin/herdr plugin unlink third774.last-workspace >/dev/null 2>&1 || true
+      ${herdrPackage}/bin/herdr plugin link "$target_dir"
+      printf '%s\n' "$source_dir" > "$marker"
+    fi
+  '';
+
+  home.activation.installHerdrWorkspaceManager = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    source_dir=${./config/herdr/plugins/workspace-manager}
+    target_dir="$HOME/.local/share/herdr/plugins-src/workspace-manager"
+    marker="$target_dir/.nix-source"
+
+    if [[ ! -f "$marker" ]] || [[ "$(cat "$marker")" != "$source_dir" ]]; then
+      rm -rf "$target_dir"
+      mkdir -p "$target_dir/target/release"
+      cp -R "$source_dir"/. "$target_dir"/
+      chmod -R u+w "$target_dir"
+      install -Dm755 ${herdrWorkspaceManagerPackage}/bin/herdr-workspace-manager \
+        "$target_dir/target/release/herdr-workspace-manager"
+      ${herdrPackage}/bin/herdr plugin unlink herdr-plugin-workspace-manager >/dev/null 2>&1 || true
       ${herdrPackage}/bin/herdr plugin link "$target_dir"
       printf '%s\n' "$source_dir" > "$marker"
     fi

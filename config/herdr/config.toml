@@ -2,6 +2,9 @@ onboarding = false
 [terminal]
 new_cwd = "follow"
 
+[worktrees]
+directory = "~/Code/worktrees"
+
 [keys]
 previous_workspace = "prefix+{"
 next_workspace = "prefix+}"
