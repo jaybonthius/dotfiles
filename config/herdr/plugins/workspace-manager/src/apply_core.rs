@@ -32,10 +32,9 @@ fn str_at<'a>(v: &'a Value, path: &[&str]) -> Option<String> {
     cur.as_str().map(String::from)
 }
 
-// Pull whatever the worktree.created event gives us out of the environment.
-// The real event wraps its records under `data` and carries `workspace`
-// (with `active_tab_id` + nested `worktree`) and a top-level `worktree`; it
-// does NOT include tab/root_pane records, so those are resolved live later.
+// Pull the workspace identity out of the event environment. The active
+// manifest sends workspace.focused, but accepting the older created-event
+// shapes keeps the handler useful for direct tests and manual invocation.
 //
 // Crucially this reads ONLY the event payload -- never the ambient
 // HERDR_PANE_ID / HERDR_TAB_ID / HERDR_WORKSPACE_ID. Those describe whichever
@@ -138,9 +137,8 @@ pub fn get_worktree_branch(
 }
 
 // --- Idempotency + freshness guards --------------------------------------
-// Both worktree.created and workspace.created fire for one CLI creation, and
-// workspace.created can also fire on restore. These guards ensure a layout is
-// applied exactly once per worktree, only when the workspace is brand new.
+// These guards ensure a layout is applied exactly once per worktree, only when
+// the workspace is brand new.
 
 pub fn state_dir(env: &Env) -> PathBuf {
     match env.get("HERDR_PLUGIN_STATE_DIR").filter(|v| !v.is_empty()) {
@@ -275,11 +273,10 @@ fn is_stale_claim(dir: &Path, checkout_path: &str) -> bool {
 }
 
 // Atomically claim a worktree for application. Returns true if we won the claim
-// (first to see it), false if a valid claim already exists. mkdir is atomic
-// across processes, so concurrent worktree.created/workspace.created hooks can't
-// both win. The claim persists across restarts so *restored* worktrees are
-// skipped -- but a stale claim left by a removed-and-recreated worktree at the
-// same path is detected and reset, so the layout is re-applied on recreate.
+// (first to see it), false if a valid claim already exists. The claim persists
+// across restarts so *restored* worktrees are skipped -- but a stale claim from
+// a removed-and-recreated worktree at the same path is detected and reset, so
+// the layout is re-applied on recreate.
 pub fn claim_apply(env: &Env, checkout_path: &str) -> Result<bool, String> {
     let dir = claim_path(env, checkout_path);
     fs::create_dir_all(applied_dir(env))

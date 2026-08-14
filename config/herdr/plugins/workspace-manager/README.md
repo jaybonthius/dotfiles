@@ -180,9 +180,9 @@ Layouts work without the CLI — it's only needed for cleanup.
 - **Real agents, not typed commands.** `agent: claude` starts a recognized agent
   with `herdr agent start`, which returns only once herdr has *detected* it and
   marked it ready for input. Add a `prompt:` to hand it the task.
-- **CLI and TUI worktrees both covered.** herdr emits different events for the
-  two creation paths; the plugin subscribes to all of them and dedupes with an
-  atomic claim, so a layout is applied exactly once per worktree.
+- **CLI and TUI worktrees both covered on first focus.** Waiting until focus
+  lets another workspace creator finish its own layout first; the plugin then
+  applies only when the worktree is still fresh.
 - **Fresh worktrees only.** A layout only builds into a fresh (1-tab/1-pane)
   workspace and never touches the repo's main checkout — refocusing or restoring
   existing worktrees is a no-op.
@@ -499,7 +499,7 @@ herdr plugin action invoke remove-gone --plugin herdr-plugin-workspace-manager  
 | `HERDR_WSM_APPLY_TIMEOUT_MS` | `60000` | Max wait for a single `layout.apply` request (one per tab). |
 | `HERDR_WSM_AGENT_TIMEOUT_MS` | `60000` | Default wait for an agent to become ready; `agentTimeoutMs` overrides per pane. |
 | `HERDR_WSM_SHELL_READY_MS` | `15000` | Max wait for a pane to be back at its shell prompt before starting an agent in it. |
-| `HERDR_WSM_FOCUS_HOOK` | — | Set to `0` to disable the `workspace.focused` trigger entirely. See [below](#is-the-workspacefocused-hook-still-needed). |
+| `HERDR_WSM_FOCUS_HOOK` | — | Set to `0` to disable automatic layout application on workspace focus. |
 | `HERDR_WSM_NO_FETCH` | — | If set, `remove-gone` skips the `git fetch --prune` and uses cached remote-tracking refs. |
 
 `apply` normally targets the workspace you invoke it from. These override that,
@@ -524,31 +524,29 @@ process, and agents wait for an observed shell prompt instead of a fixed guess.
 
 ## How it works
 
-The plugin subscribes to **three** events, because herdr creates worktrees two
-different ways and they emit different events to plugins:
+This vendored build subscribes only to `workspace.focused`. Delaying automatic
+application until first focus establishes one layout owner:
 
-| You create a worktree via… | herdr emits to plugins |
+| Workspace state at first focus | Result |
 | --- | --- |
-| `herdr worktree create` (CLI / socket API) | `worktree.created` **and** `workspace.created` |
-| the **TUI** right-click "new worktree" (in-app) | **only** `workspace.focused` (it focuses the new worktree on creation) |
+| Sessionizer already installed its layout | Skip: the workspace is not fresh |
+| Native Herdr created a fresh worktree | Apply the configured layout |
+| CLI created without focus | Apply when the workspace is first focused |
 
-So the hook listens for `worktree.created`, `workspace.created`, **and**
-`workspace.focused`. On any of them it:
+On focus the hook:
 
-1. Loads the config and resolves the focused/created workspace id.
-2. **Queries** that workspace for its worktree facts (the `workspace.focused`
-   payload carries only an id).
+1. Resolves the focused workspace id.
+2. **Queries** that workspace for its worktree facts.
 3. Skips unless it's a **linked worktree** (never the repo's main checkout).
 4. Matches against `workspaces[]` by **repo** (`repo_root`/`repo_name`) or path,
    then picks the layout: the first `layoutMatching` rule whose glob matches the
    worktree's **branch**, else the workspace's `defaultLayout`.
 5. Only builds into a **fresh** (1-tab/1-pane) workspace.
-6. **Dedupes** with an atomic claim (the events can fire together; also skips
-   restored worktrees after a restart) — applied exactly once per worktree.
+6. **Dedupes** with an atomic claim, including across server restarts.
 7. Builds each tab with **one** `layout.apply` request, then starts any agents.
 
 ```
- new worktree (CLI or TUI) ──► event hook (herdr-workspace-manager event)
+ first worktree focus ──► event hook (herdr-workspace-manager event)
         ▼
    load config ─► match workspaces[] (repo or path) ─► default layout
         │                                                   │
@@ -568,30 +566,21 @@ claims whose worktree no longer exists and clears the per-session focus cache.
 Because it's herdr's own layout and agent APIs under the hood, the result is a
 set of ordinary panes — the plugin doesn't manage their lifecycle afterwards.
 
-### Is the `workspace.focused` hook still needed?
+### Why wait for `workspace.focused`?
 
-`workspace.focused` fires on **every** workspace switch, making it by far the
-most frequent reason this plugin runs. It's subscribed to only because herdr's
-TUI worktree creation has historically not delivered `worktree.created` to
-plugins. Its early-exit path is therefore kept to a single `stat` — no config
-parse, no herdr query, and the shim skips its rebuild check for this event.
+`worktree.created` and `workspace.created` fire while a creator such as
+Sessionizer is still building its own layout. Applying from those events races
+that creator and can duplicate tabs. Sessionizer focuses the workspace only
+after its layout is complete, so the fresh-workspace guard can safely detect it
+and skip.
 
-If your herdr build *does* deliver `worktree.created` for TUI-created worktrees,
-you can drop the trigger entirely. To check:
+Native Herdr creation focuses the new worktree while it is still a fresh
+1-tab/1-pane workspace, so the same hook applies the configured layout there.
+A CLI-created worktree that is not focused receives its layout on first focus.
 
-```sh
-# Create a worktree from the TUI (right-click a space -> new worktree), then:
-herdr plugin log list --plugin herdr-plugin-workspace-manager
-```
-
-If the log shows a `worktree.created` or `workspace.created` entry for that
-creation, the focus hook is redundant — set `HERDR_WSM_FOCUS_HOOK=0` in herdr's
-environment, or remove the `[[events]] on = "workspace.focused"` block from the
-manifest.
-
-Keeping it on is harmless. One side effect worth knowing: focusing a *fresh,
-empty* worktree of a configured repo applies its layout (once) — which is
-exactly what the TUI flow relies on.
+Because `workspace.focused` fires on every switch, handled workspace ids are
+cached. Repeat focuses normally exit after one `stat`, without parsing config or
+querying Herdr.
 
 ## Trust & security
 

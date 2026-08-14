@@ -15,28 +15,11 @@ platforms = ["linux", "macos"]
 [[startup]]
 command = ["sh", "bin/herdr-workspace-manager", "startup"]
 
-# Fires for every new worktree. The handler matches the new worktree's checkout
-# path against the configured workspaces and, if a default layout is set, applies
-# it (creates the tabs/panes and runs their commands).
-[[events]]
-on = "worktree.created"
-command = ["sh", "bin/herdr-workspace-manager", "event"]
-
-# The herdr UI "new worktree" command has historically created the worktree
-# in-app and emitted NEITHER worktree.created nor workspace.created to plugins —
-# the only event it dispatches is workspace.focused (it focuses the new worktree
-# on creation). So we also listen for workspace.created (CLI path) and
-# workspace.focused (UI path). The hook dedupes, so the extra events are
-# harmless.
-#
-# workspace.focused fires on every workspace switch, so its early-exit path is
-# kept to a single stat. If your herdr build does deliver worktree.created for
-# UI-created worktrees, set HERDR_WSM_FOCUS_HOOK=0 to skip it entirely — see
-# "Is the workspace.focused hook still needed?" in the README.
-[[events]]
-on = "workspace.created"
-command = ["sh", "bin/herdr-workspace-manager", "event"]
-
+# Apply only when a workspace is first focused. This gives workspace creators
+# such as Sessionizer time to install their own layout first; the fresh-workspace
+# guard then skips it. Native Herdr worktree creation focuses a fresh workspace,
+# so it still receives the configured layout. Later focus events exit after one
+# state lookup.
 [[events]]
 on = "workspace.focused"
 command = ["sh", "bin/herdr-workspace-manager", "event"]

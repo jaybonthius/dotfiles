@@ -22,6 +22,16 @@ use serde_json::Value;
 
 const EVENT_BIN: &str = env!("CARGO_BIN_EXE_herdr-workspace-manager");
 
+#[test]
+fn manifest_defers_auto_layout_until_workspace_focus() {
+    let manifest = fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/herdr-plugin.toml"))
+        .expect("read plugin manifest");
+
+    assert!(manifest.contains("on = \"workspace.focused\""));
+    assert!(!manifest.contains("on = \"worktree.created\""));
+    assert!(!manifest.contains("on = \"workspace.created\""));
+}
+
 fn herdr_bin() -> String {
     std::env::var("HERDR_BIN_PATH").unwrap_or_else(|_| "herdr".to_string())
 }
@@ -332,16 +342,12 @@ workspaces:
         a0w
     );
 
-    // 4. Idempotency: a second event (e.g. the workspace.created the CLI also
-    //    fires) must be a no-op via the claim, not a doubled layout.
-    let dup = run_event("workspace.created");
-    let dup_stderr = String::from_utf8_lossy(&dup.stderr).into_owned();
-    assert!(dup.status.success(), "dedupe run failed:\n{}", dup_stderr);
-    // No re-apply: the claim (race) or the freshness guard (sequential) skips it.
+    // 4. Idempotency: a second focus must be a no-op, not a doubled layout.
+    let duplicate_focus = run_event("workspace.focused");
     assert!(
-        dup_stderr.contains("already applied") || dup_stderr.contains("not a fresh"),
-        "duplicate event should be a no-op, got:\n{}",
-        dup_stderr
+        duplicate_focus.status.success(),
+        "repeat-focus run failed:\n{}",
+        String::from_utf8_lossy(&duplicate_focus.stderr)
     );
     assert_eq!(
         herdr(&["pane", "list", "--workspace", &workspace_id])["panes"].as_array().unwrap().len(),

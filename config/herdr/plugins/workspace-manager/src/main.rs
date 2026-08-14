@@ -130,26 +130,22 @@ fn cmd_startup(env: &Env) -> Result<(), String> {
 }
 
 // --- event -------------------------------------------------------------------
-// Event hook for worktree.created, workspace.created AND workspace.focused.
+// Event hook for workspace.focused.
 //
-// Why three events: the `herdr worktree create` CLI emits worktree.created (and
-// workspace.created), but the herdr **UI** "new worktree" command has
-// historically created the worktree in-app and emitted NEITHER to plugins — the
-// only thing it dispatches is workspace.focused (it focuses the new worktree
-// right after creating it). So we listen for all three and resolve the worktree
-// facts by querying the workspace.
+// The manifest deliberately waits for focus instead of handling creation
+// events. A creator such as Sessionizer can finish its own layout before it
+// focuses the workspace; the freshness guard below then skips it. Native Herdr
+// creation focuses a fresh workspace, so this plugin still applies the layout.
 //
-// workspace.focused fires on every workspace switch, which makes it by far the
-// most frequent reason this binary runs, so its early-exit path does no work
-// beyond a single `stat`: no config parse, no herdr query. Set
-// HERDR_WSM_FOCUS_HOOK=0 to drop the focus path entirely on a herdr build whose
-// UI worktree creation does emit worktree.created (see the README).
+// workspace.focused fires on every workspace switch, so its early-exit path does
+// no work beyond a single `stat`: no config parse, no herdr query. Set
+// HERDR_WSM_FOCUS_HOOK=0 to disable automatic layout application entirely.
 //
 // Guards (a layout is applied exactly once, only to a brand-new linked worktree):
 //   - linked-worktree only (never the repo's main checkout)
 //   - repo/path must match the config
 //   - fresh 1-tab/1-pane workspace only (don't clobber arranged/restored ones)
-//   - atomic claim by checkout path (dedupe across the multiple events + restarts)
+//   - atomic claim by checkout path (dedupe across focuses + restarts)
 //   - "decided" cache by workspace id so repeat focuses don't re-query
 fn cmd_event(env: &Env) -> Result<(), String> {
     let is_focus = env.get("HERDR_PLUGIN_EVENT").unwrap_or("").contains("focus");

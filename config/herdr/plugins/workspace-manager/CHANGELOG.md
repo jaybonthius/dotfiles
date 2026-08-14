@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## Local vendored changes
+
+- Subscribe only to `workspace.focused` for automatic layout application. This
+  lets Sessionizer finish its own layout before the freshness guard runs, while
+  native Herdr worktrees still receive the configured layout on first focus.
+
 ## [0.6.0] - 2026-07-26
 
 Rebuilt on the herdr APIs that have landed since this plugin was first written.

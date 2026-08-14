@@ -1,3 +1,6 @@
 upstream = "https://github.com/razajamil/herdr-plugin-workspace-manager"
 tag = "v0.6.0"
 commit = "0da7e74999ba1cc7937b2b1787db1779febef031"
+local_changes = [
+  "Defer automatic layout application to workspace.focused so Sessionizer and Workspace Manager do not race.",
+]
