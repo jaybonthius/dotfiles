@@ -506,6 +506,11 @@ in
     force = true;
   };
 
+  home.file.".agents/skills/racket-docs" = lib.mkIf (!isWorkMachine) {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/racket-docs";
+    force = true;
+  };
+
   home.file.".agents/skills/drawio-skill" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/drawio-skill";
     force = true;
