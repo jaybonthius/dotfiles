@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    zig.url = "github:mitchellh/zig-overlay";
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -34,6 +35,7 @@
       nixpkgs,
       home-manager,
       minimal-emacs,
+      zig,
       paseo,
       herdr,
       herdr-sessionizer,
@@ -55,6 +57,7 @@
           extraSpecialArgs = {
             inherit
               minimal-emacs
+              zig
               paseo
               herdr
               herdr-sessionizer

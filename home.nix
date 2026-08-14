@@ -3,6 +3,7 @@
   pkgs,
   lib,
   minimal-emacs,
+  zig,
   paseo,
   herdr,
   herdr-sessionizer,
@@ -37,6 +38,7 @@ let
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
 
   herdrPackage = herdr.packages.${pkgs.system}.default;
+  zigPackage = zig.packages.${pkgs.system}.default;
 
   herdrLastWorkspacePackage = pkgs.rustPlatform.buildRustPackage {
     pname = "herdr-last-workspace";
@@ -219,10 +221,6 @@ in
     ++ lib.optionals stdenv.isDarwin [
       netcat
     ]
-    ++ lib.optionals (!(stdenv.isLinux && stdenv.hostPlatform.isx86_64)) [
-      go
-      gopls
-    ]
     ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
       uv
     ]
@@ -235,6 +233,9 @@ in
     # Nothing here is needed on work machines; see `isWorkMachine` above.
     # Keeps roughly 1.6 GiB of closure off work hosts.
     ++ lib.optionals (!isWorkMachine) [
+      go
+      gopls
+      zigPackage
       codebase-memory-mcp
       paseo.packages.${pkgs.system}.paseo # CLI/daemon for headless personal hosts
       python3Packages.grip # markdown preview
