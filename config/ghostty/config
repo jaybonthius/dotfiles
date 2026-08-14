@@ -1,0 +1,69 @@
+# theme = dark:everforest-dark,light:everforest-light
+# theme = dark:catppuccin-macchiato,light:catppuccin-latte
+# theme = dark:"Monokai Pro",light:"Monokai Pro Light"
+# theme = dark:modus-vivendi,light:modus-operandi
+# theme = dark:"Gruvbox Dark",light:"Gruvbox Light"
+theme = dark:modus-vivendi-tinted,light:modus-operandi-tinted
+gtk-titlebar = false
+gtk-tabs-location = hidden
+
+window-show-tab-bar=never
+
+window-decoration=none
+window-padding-x = 15
+window-padding-y = 10
+
+font-family="FiraCode Nerd Font"
+clipboard-read = allow
+clipboard-write = allow
+copy-on-select = clipboard
+
+cursor-style = block
+adjust-cursor-thickness = 3
+cursor-style-blink = true
+shell-integration-features = no-cursor,ssh-terminfo,ssh-env
+
+env = CMUX_SOCKET_MODE=allowAll
+
+keybind = super+m=unbind
+keybind = super+t=unbind
+keybind = super+d=unbind
+keybind = super+k=unbind
+keybind = super+comma=unbind
+keybind = super+period=unbind
+keybind = super+equal=unbind
+keybind = super+zero=unbind
+keybind = super+enter=unbind
+keybind = super+up=unbind
+keybind = super+down=unbind
+keybind = super+left=unbind
+keybind = super+right=unbind
+keybind = super+home=unbind
+keybind = super+end=unbind
+keybind = super+left_bracket=unbind
+keybind = super+right_bracket=unbind
+keybind = super+one=unbind
+keybind = super+digit_1=csi:49;9u
+keybind = super+two=unbind
+keybind = super+digit_2=csi:50;9u
+keybind = super+three=unbind
+keybind = super+digit_3=csi:51;9u
+keybind = super+four=unbind
+keybind = super+digit_4=csi:52;9u
+keybind = super+five=unbind
+keybind = super+digit_5=csi:53;9u
+keybind = super+six=unbind
+keybind = super+digit_6=csi:54;9u
+keybind = super+seven=unbind
+keybind = super+digit_7=csi:55;9u
+keybind = super+eight=unbind
+keybind = super+digit_8=csi:56;9u
+keybind = super+nine=unbind
+keybind = super+digit_9=csi:57;9u
+keybind = shift+enter=text:\x1b[13;2u
+keybind = alt+m=text:\x1b[109;6u
+
+
+
+macos-option-as-alt = true
+keybind = cmd+f=unbind

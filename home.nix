@@ -423,6 +423,15 @@ in
     force = true;
   };
 
+  # ── Ghostty ─────────────────────────────────────────────────────────
+  # Config + themes only (Ghostty itself is installed outside Nix).
+  # Out-of-store symlink of the whole directory so edits to config or
+  # themes take effect immediately without `home-manager switch`.
+  xdg.configFile."ghostty" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/ghostty";
+    force = true;
+  };
+
   # ── Emacs ───────────────────────────────────────────────────────────
   # Emacs config uses Elpaca for package management, so we just symlink
   # the config files. minimal-emacs.d is a flake input.
