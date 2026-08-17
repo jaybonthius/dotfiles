@@ -3,22 +3,29 @@
 Always-on guidance loaded by pi (`~/.pi/agent/AGENTS.md`). Keep it short and
 high-signal.
 
+## Markup prose
+
+Write each prose paragraph in Markdown, Org mode, Scribble, and similar markup as a single source line. Rely on visual/soft wrapping; add explicit line breaks only when syntax or the intended rendering requires them.
+
+## Editing authorization
+
+Treat questions about whether, why, or how something should change as read-only requests. Answer the question without modifying files. Modify files only when the user explicitly asks you to make, apply, or implement a change. If the request could reasonably mean either discussion or implementation, ask before editing.
+
 ## Evidence and explanations
 
 Distinguish observed facts, hard constraints, documented rationale, inference, and owner decisions in every answer. When asked why existing code or structure exists, do not treat tool defaults, current configuration, or references among repository-owned files as justification; they establish mechanism, likely origin, or change impact. Search documentation, comments, decision records, issues, and relevant history for explicit rationale. If none is evidenced, say so rather than inventing one, label any inference, and evaluate the choice against concrete current requirements. Include only facts that bear on the question.
 
-## Planning: clarify before proposing
+## Planning: investigate before asking
 
-Before creating or presenting a plan, use Pi's structured question tool to resolve
-owner preferences and genuine product, scope, security, persistence, or architecture
-decisions. Do not fill decision gaps with assumptions. Ask focused questions before
-writing the plan; when recommending an option based on evidence or best practices,
-label it explicitly as **Recommended** and explain why. If you say that you need or
-have questions, ask those questions immediately in the same turn—inline or by invoking
-the structured question tool before ending the response. Never make the owner prompt
-you to reveal questions you already know you need to ask. Drive clarification to
-completion: after answers arrive, continue with any remaining questions or synthesize
-the settled plan; never stop at a meta-announcement that questions come next.
+Before creating or presenting a plan, investigate the repository, documentation, history, available tools, and relevant external sources enough to identify unresolved owner decisions. Resolve facts, established conventions, and reversible implementation choices yourself. Ask only when materially different owner-visible product, scope, security, privacy, persistence, compatibility, cost, or hard-to-reverse architecture outcomes remain. If any remain, use Pi's structured question tool before writing the plan; do not fill genuine decision gaps with assumptions.
+
+Ask owner questions in plain English. Use concrete names for components and actions. Give only the information needed to decide, followed by short options. Explain necessary technical terms instead of inventing compressed engineering phrases. If the evidence determines the answer, decide and report it instead of asking. If missing factual context prevents a recommendation, continue investigating unless the missing information exists only in the owner's head.
+
+If you say that you need or have questions, ask them immediately in the same turn—inline or with the structured question tool. Never make the owner prompt you to reveal questions you already know you need to ask. Drive clarification to completion: after answers arrive, continue with any remaining questions or synthesize the settled plan; never stop at a meta-announcement that questions come next.
+
+## Commit messages
+
+Write a brief imperative subject, optionally prefixed by one or two short conceptual scopes (`database: ...`, `session,postgres: ...`). Include a scope only when it clarifies the subject; treat it as a label, not an inventory of changed modules, and use a domain name rather than a directory path. Aim for 50 characters and never exceed 72. Use a body only for non-obvious rationale, breaking changes, security fixes, migrations, or reverts. Avoid change-category scopes such as `feat`, `fix`, `refactor`, and `chore`.
 
 ## Ask before working around surprises
 

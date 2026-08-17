@@ -72,6 +72,23 @@
         "type": "github"
       }
     },
+    "herdr-symlink-worktree": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784235041,
+        "narHash": "sha256-etR9a4TUUecOSnaHBm2aQrSeV+kP2XCp1mY7ZFNS+3o=",
+        "owner": "hmu332233",
+        "repo": "herdr-symlink-worktree",
+        "rev": "1af90cf40eef743c918df21badf33b99edadd09f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hmu332233",
+        "repo": "herdr-symlink-worktree",
+        "rev": "1af90cf40eef743c918df21badf33b99edadd09f",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -165,6 +182,7 @@
         "herdr": "herdr",
         "herdr-last-workspace": "herdr-last-workspace",
         "herdr-sessionizer": "herdr-sessionizer",
+        "herdr-symlink-worktree": "herdr-symlink-worktree",
         "home-manager": "home-manager",
         "minimal-emacs": "minimal-emacs",
         "nixpkgs": "nixpkgs",

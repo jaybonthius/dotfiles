@@ -8,6 +8,7 @@
   herdr,
   herdr-sessionizer,
   herdr-last-workspace,
+  herdr-symlink-worktree,
   ...
 }:
 
@@ -278,6 +279,8 @@ in
   }
   // lib.optionalAttrs (!isWorkMachine) {
     CBM_MCP_BIN = "$HOME/.nix-profile/bin/codebase-memory-mcp";
+    # Keep remote Plannotator sessions within an SSH-forwardable port range.
+    PLANNOTATOR_PORT = "19432-19463";
   };
 
   home.sessionPath = [
@@ -486,6 +489,11 @@ in
     force = true;
   };
 
+  home.file.".pi/agent/agents" = lib.mkIf (!isWorkMachine) {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/agents";
+    force = true;
+  };
+
   home.file.".pi/agent/AGENTS.md" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/AGENTS.md";
     force = true;
@@ -513,6 +521,16 @@ in
 
   home.file.".agents/skills/drawio-skill" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/drawio-skill";
+    force = true;
+  };
+
+  home.file.".agents/skills/code-changes" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/code-changes";
+    force = true;
+  };
+
+  home.file.".agents/skills/conductor" = lib.mkIf (!isWorkMachine) {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/conductor";
     force = true;
   };
 
@@ -691,6 +709,12 @@ in
 
   home.file."bin/git-sync-main-master" = {
     source = ./config/bin/git-sync-main-master;
+    executable = true;
+    force = true;
+  };
+
+  home.file."bin/git-agent-overlay-init" = {
+    source = ./config/bin/git-agent-overlay-init;
     executable = true;
     force = true;
   };
@@ -902,6 +926,24 @@ in
       ${herdrPackage}/bin/herdr plugin link "$target_dir"
       printf '%s\n' "$source_dir" > "$marker"
     fi
+  '';
+
+  home.activation.installHerdrSymlinkWorktree = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    PATH="${pkgs.git}/bin:${herdrPackage}/bin:$PATH"
+    source_dir=${herdr-symlink-worktree}
+    target_dir="$HOME/.local/share/herdr/plugins-src/symlink-worktree"
+    marker="$target_dir/.nix-source"
+
+    if [[ ! -f "$marker" ]] || [[ "$(cat "$marker")" != "$source_dir" ]]; then
+      rm -rf "$target_dir"
+      mkdir -p "$target_dir"
+      cp -R "$source_dir"/. "$target_dir"/
+      chmod -R u+w "$target_dir"
+      printf '%s\n' "$source_dir" > "$marker"
+    fi
+
+    ${herdrPackage}/bin/herdr plugin unlink dev.minung.symlink-worktree >/dev/null 2>&1 || true
+    ${herdrPackage}/bin/herdr plugin link "$target_dir"
   '';
 
   home.activation.installHerdrWorkspaceManager = lib.hm.dag.entryAfter [ "writeBoundary" ] ''

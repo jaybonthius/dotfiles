@@ -1,0 +1,429 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: git-agent-overlay-init [repository]"
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+elif [[ $# -gt 1 ]]; then
+  usage >&2
+  exit 1
+fi
+
+repo="${1:-$PWD}"
+root="$(git -C "$repo" rev-parse --show-toplevel)"
+common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir)"
+agent_worktree="$HOME/Code/worktrees/$(basename "$root")/agent-state"
+hooks_dir="$common/hooks"
+
+if [[ "$(dirname "$common")" != "$root" ]]; then
+  echo "git-agent-overlay-init: run this from the repository's primary checkout" >&2
+  exit 1
+fi
+
+if git -C "$root" config --get core.hooksPath >/dev/null; then
+  echo "git-agent-overlay-init: core.hooksPath is already configured; refusing to replace it" >&2
+  exit 1
+fi
+
+tracked_agent_paths="$(git -C "$root" ls-files -- \
+  AGENTS.md CONTEXT.md NOTES.md docs/adr docs/agents notes .scratch .out-of-scope \
+  .pi .herdr-worktree-links)"
+if [[ -n "$tracked_agent_paths" ]]; then
+  echo "git-agent-overlay-init: agent paths are already tracked in product history:" >&2
+  printf '%s\n' "$tracked_agent_paths" >&2
+  exit 1
+fi
+
+tmp="$(mktemp -d)"
+created_state=false
+cleanup() {
+  local status=$?
+  if [[ $status -ne 0 && "$created_state" == true ]]; then
+    git -C "$root" worktree remove --force "$agent_worktree" >/dev/null 2>&1 || true
+    git -C "$root" branch -D agent-state >/dev/null 2>&1 || true
+  fi
+  rm -rf "$tmp"
+  exit "$status"
+}
+trap cleanup EXIT
+
+cat > "$tmp/agent-state.gitignore" <<'EOF'
+!/.scratch/
+!/.scratch/**
+!/.out-of-scope/
+!/.out-of-scope/**
+!/CONTEXT.md
+!/NOTES.md
+!/notes/
+!/notes/**
+!/docs/
+!/docs/agents/
+!/docs/agents/**
+!/docs/adr/
+!/docs/adr/**
+EOF
+
+cat > "$tmp/pre-commit" <<'HOOK'
+#!/bin/sh
+set -eu
+branch=$(git symbolic-ref --quiet --short HEAD || true)
+if [ "$branch" != "agent-state" ]; then
+  git diff --cached --quiet -- \
+    AGENTS.md CONTEXT.md NOTES.md docs/adr docs/agents notes .scratch .out-of-scope \
+    .pi .herdr-worktree-links || {
+      echo "pre-commit: local agent state cannot enter product history." >&2
+      exit 1
+    }
+fi
+HOOK
+
+cat > "$tmp/pre-merge-commit" <<'HOOK'
+#!/bin/sh
+set -eu
+branch=$(git symbolic-ref --quiet --short HEAD || true)
+if [ "$branch" = "agent-state" ]; then
+  echo "pre-merge-commit: keep agent-state orphaned from product history." >&2
+  exit 1
+fi
+merge_heads=$(env | sed -n 's/^GITHEAD_\([0-9a-fA-F]\{40\}\)=.*/\1/p')
+merge_head_path=$(git rev-parse --git-path MERGE_HEAD)
+if [ -f "$merge_head_path" ]; then
+  merge_heads="$merge_heads
+$(cat "$merge_head_path")"
+fi
+if [ -z "$merge_heads" ]; then
+  echo "pre-merge-commit: cannot identify incoming history; refusing merge." >&2
+  exit 1
+fi
+for merge_head in $merge_heads; do
+  if git log --format=%H "$merge_head" -- \
+    AGENTS.md CONTEXT.md NOTES.md docs/adr docs/agents notes .scratch .out-of-scope \
+    .pi .herdr-worktree-links | grep -q .; then
+    echo "pre-merge-commit: refusing agent-state history on $branch." >&2
+    exit 1
+  fi
+done
+"$(git rev-parse --git-path hooks)/pre-commit"
+HOOK
+
+cat > "$tmp/pre-push" <<'HOOK'
+#!/bin/sh
+set -eu
+zero=0000000000000000000000000000000000000000
+agent_commit=$(git rev-parse --verify refs/heads/agent-state)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$local_ref" = "refs/heads/agent-state" ]; then
+    echo "pre-push: agent-state is local-only." >&2
+    exit 1
+  fi
+  commit=$(git rev-parse --verify "$local_sha^{commit}" 2>/dev/null || true)
+  [ -z "$commit" ] && continue
+  if git merge-base --is-ancestor "$agent_commit" "$commit"; then
+    echo "pre-push: $local_ref contains agent-state ancestry." >&2
+    exit 1
+  fi
+  if git log --format=%H "$commit" -- \
+    AGENTS.md CONTEXT.md NOTES.md docs/adr docs/agents notes .scratch .out-of-scope \
+    .pi .herdr-worktree-links | grep -q .; then
+    echo "pre-push: $local_ref history contains local agent paths." >&2
+    exit 1
+  fi
+done
+HOOK
+
+# Reject every deterministic conflict before changing the repository.
+for name in pre-commit pre-merge-commit pre-push; do
+  target="$hooks_dir/$name"
+  if [[ -e "$target" ]] && ! cmp -s "$tmp/$name" "$target"; then
+    echo "git-agent-overlay-init: refusing to overwrite existing $target" >&2
+    exit 1
+  fi
+done
+
+check_link_slot() {
+  local path="$1"
+  local expected="$2"
+  if [[ -L "$path" ]]; then
+    [[ "$(readlink -f "$path")" == "$expected" ]] || {
+      echo "git-agent-overlay-init: conflicting symlink: $path" >&2
+      exit 1
+    }
+  elif [[ -e "$path" ]]; then
+    echo "git-agent-overlay-init: path already exists: $path" >&2
+    exit 1
+  fi
+}
+
+new_state=false
+install_agent_ignore=false
+remove_agent_source=false
+remove_docs_source=false
+if git -C "$root" show-ref --verify --quiet refs/heads/agent-state; then
+  [[ -d "$agent_worktree" ]] || {
+    echo "git-agent-overlay-init: agent-state exists outside $agent_worktree" >&2
+    exit 1
+  }
+  [[ "$(git -C "$agent_worktree" rev-parse --path-format=absolute --git-common-dir)" == "$common" ]] || {
+    echo "git-agent-overlay-init: $agent_worktree belongs to another repository" >&2
+    exit 1
+  }
+  [[ "$(git -C "$agent_worktree" symbolic-ref --short HEAD)" == "agent-state" ]] || {
+    echo "git-agent-overlay-init: $agent_worktree is not on agent-state" >&2
+    exit 1
+  }
+  [[ -f "$agent_worktree/AGENTS.md" && -d "$agent_worktree/docs/agents" ]] || {
+    echo "git-agent-overlay-init: agent-state is missing AGENTS.md or docs/agents" >&2
+    exit 1
+  }
+  if [[ -e "$agent_worktree/.gitignore" ]]; then
+    cmp -s "$tmp/agent-state.gitignore" "$agent_worktree/.gitignore" || {
+      echo "git-agent-overlay-init: refusing to overwrite agent-state .gitignore" >&2
+      exit 1
+    }
+  else
+    install_agent_ignore=true
+  fi
+
+  if [[ -f "$root/AGENTS.md" && ! -L "$root/AGENTS.md" ]]; then
+    cmp -s "$root/AGENTS.md" "$agent_worktree/AGENTS.md" || {
+      echo "git-agent-overlay-init: AGENTS.md differs from agent-state" >&2
+      exit 1
+    }
+    remove_agent_source=true
+  else
+    check_link_slot "$root/AGENTS.md" "$agent_worktree/AGENTS.md"
+  fi
+
+  if [[ -d "$root/docs/agents" && ! -L "$root/docs/agents" ]]; then
+    diff -qr "$root/docs/agents" "$agent_worktree/docs/agents" >/dev/null || {
+      echo "git-agent-overlay-init: docs/agents differs from agent-state" >&2
+      exit 1
+    }
+    remove_docs_source=true
+  else
+    check_link_slot "$root/docs/agents" "$agent_worktree/docs/agents"
+  fi
+else
+  [[ -f "$root/AGENTS.md" && ! -L "$root/AGENTS.md" ]] || {
+    echo "git-agent-overlay-init: expected an untracked AGENTS.md" >&2
+    exit 1
+  }
+  [[ -d "$root/docs/agents" && ! -L "$root/docs/agents" ]] || {
+    echo "git-agent-overlay-init: expected an untracked docs/agents directory" >&2
+    exit 1
+  }
+  git -C "$root" var GIT_AUTHOR_IDENT >/dev/null
+  git -C "$root" var GIT_COMMITTER_IDENT >/dev/null
+  new_state=true
+fi
+
+links="$root/.herdr-worktree-links"
+if [[ -L "$links" || ( -e "$links" && ! -f "$links" ) ]]; then
+  echo "git-agent-overlay-init: expected a regular file: $links" >&2
+  exit 1
+fi
+
+if $new_state; then
+  [[ ! -e "$agent_worktree" ]] || {
+    echo "git-agent-overlay-init: worktree destination already exists: $agent_worktree" >&2
+    exit 1
+  }
+  mkdir -p "$(dirname "$agent_worktree")"
+  git -C "$root" worktree add --orphan -b agent-state "$agent_worktree"
+  created_state=true
+  cp "$tmp/agent-state.gitignore" "$agent_worktree/.gitignore"
+  cp "$root/AGENTS.md" "$agent_worktree/AGENTS.md"
+  mkdir -p "$agent_worktree/docs"
+  cp -a "$root/docs/agents" "$agent_worktree/docs/agents"
+  git -C "$agent_worktree" add .gitignore AGENTS.md docs/agents
+  git -C "$agent_worktree" commit -m "chore(agent): initialize local state"
+  created_state=false
+  remove_agent_source=true
+  remove_docs_source=true
+elif $install_agent_ignore; then
+  cp "$tmp/agent-state.gitignore" "$agent_worktree/.gitignore"
+  git -C "$agent_worktree" add .gitignore
+  git -C "$agent_worktree" commit --only .gitignore -m "fix(agent): expose new docs"
+fi
+
+workflow_state_changed=false
+remove_shared_dirs=()
+remove_shared_files=()
+
+adopt_shared_dir() {
+  local rel="$1"
+  local source="$root/$rel"
+  local target="$agent_worktree/$rel"
+
+  if [[ ! -e "$target" ]]; then
+    if [[ -d "$source" && ! -L "$source" ]]; then
+      cp -a "$source" "$target"
+    elif [[ -e "$source" || -L "$source" ]]; then
+      echo "git-agent-overlay-init: expected a directory: $source" >&2
+      exit 1
+    else
+      mkdir -p "$target"
+      touch "$target/.gitkeep"
+    fi
+    workflow_state_changed=true
+  fi
+
+  if [[ -L "$source" ]]; then
+    check_link_slot "$source" "$target"
+  elif [[ -d "$source" ]]; then
+    diff -qr "$source" "$target" >/dev/null || {
+      echo "git-agent-overlay-init: $rel differs from agent-state" >&2
+      exit 1
+    }
+    remove_shared_dirs+=("$source")
+  elif [[ -e "$source" ]]; then
+    echo "git-agent-overlay-init: expected a directory: $source" >&2
+    exit 1
+  fi
+}
+
+adopt_context() {
+  local source="$root/CONTEXT.md"
+  local target="$agent_worktree/CONTEXT.md"
+
+  if [[ ! -e "$target" ]]; then
+    if [[ -f "$source" && ! -L "$source" ]]; then
+      cp "$source" "$target"
+    elif [[ -e "$source" || -L "$source" ]]; then
+      echo "git-agent-overlay-init: expected a file: $source" >&2
+      exit 1
+    else
+      cat > "$target" <<EOF
+# $(basename "$root")
+
+## Language
+EOF
+    fi
+    workflow_state_changed=true
+  fi
+
+  if [[ -L "$source" ]]; then
+    check_link_slot "$source" "$target"
+  elif [[ -f "$source" ]]; then
+    cmp -s "$source" "$target" || {
+      echo "git-agent-overlay-init: CONTEXT.md differs from agent-state" >&2
+      exit 1
+    }
+    remove_shared_files+=("$source")
+  elif [[ -e "$source" ]]; then
+    echo "git-agent-overlay-init: expected a file: $source" >&2
+    exit 1
+  fi
+}
+
+adopt_notes() {
+  local source="$root/NOTES.md"
+  local target="$agent_worktree/NOTES.md"
+
+  if [[ ! -e "$target" ]]; then
+    if [[ -f "$source" && ! -L "$source" ]]; then
+      cp "$source" "$target"
+    elif [[ -e "$source" || -L "$source" ]]; then
+      echo "git-agent-overlay-init: expected a file: $source" >&2
+      exit 1
+    else
+      printf '# Notes\n' > "$target"
+    fi
+    workflow_state_changed=true
+  fi
+
+  if [[ -L "$source" ]]; then
+    check_link_slot "$source" "$target"
+  elif [[ -f "$source" ]]; then
+    cmp -s "$source" "$target" || {
+      echo "git-agent-overlay-init: NOTES.md differs from agent-state" >&2
+      exit 1
+    }
+    remove_shared_files+=("$source")
+  elif [[ -e "$source" ]]; then
+    echo "git-agent-overlay-init: expected a file: $source" >&2
+    exit 1
+  fi
+}
+
+adopt_shared_dir ".scratch"
+adopt_shared_dir ".out-of-scope"
+adopt_shared_dir "docs/adr"
+adopt_shared_dir "notes"
+adopt_context
+adopt_notes
+
+if $workflow_state_changed; then
+  git -C "$agent_worktree" add .scratch .out-of-scope CONTEXT.md NOTES.md docs/adr notes
+  git -C "$agent_worktree" commit --only \
+    .scratch .out-of-scope CONTEXT.md NOTES.md docs/adr notes \
+    -m "chore(agent): initialize workflow state"
+fi
+
+$remove_agent_source && rm "$root/AGENTS.md"
+$remove_docs_source && rm -rf "$root/docs/agents"
+for source in "${remove_shared_dirs[@]}"; do rm -rf "$source"; done
+for source in "${remove_shared_files[@]}"; do rm "$source"; done
+
+ensure_link() {
+  local path="$1"
+  local target="$2"
+  local expected="$3"
+  check_link_slot "$path" "$expected"
+  [[ -L "$path" ]] || ln -s "$target" "$path"
+}
+
+ensure_link "$root/AGENTS.md" "$agent_worktree/AGENTS.md" "$agent_worktree/AGENTS.md"
+ensure_link "$root/CONTEXT.md" "$agent_worktree/CONTEXT.md" "$agent_worktree/CONTEXT.md"
+ensure_link "$root/NOTES.md" "$agent_worktree/NOTES.md" "$agent_worktree/NOTES.md"
+ensure_link "$root/.out-of-scope" "$agent_worktree/.out-of-scope" "$agent_worktree/.out-of-scope"
+ensure_link "$root/.scratch" "$agent_worktree/.scratch" "$agent_worktree/.scratch"
+mkdir -p "$root/docs"
+ensure_link "$root/docs/adr" "$agent_worktree/docs/adr" "$agent_worktree/docs/adr"
+ensure_link "$root/docs/agents" "$agent_worktree/docs/agents" "$agent_worktree/docs/agents"
+ensure_link "$root/notes" "$agent_worktree/notes" "$agent_worktree/notes"
+
+ensure_line() {
+  local line="$1"
+  local file="$2"
+  grep -Fqx "$line" "$file" 2>/dev/null || printf '%s\n' "$line" >> "$file"
+}
+
+touch "$links"
+ensure_line "AGENTS.md" "$links"
+ensure_line "CONTEXT.md" "$links"
+ensure_line "NOTES.md" "$links"
+ensure_line ".out-of-scope" "$links"
+ensure_line ".scratch" "$links"
+ensure_line "docs/adr" "$links"
+ensure_line "docs/agents" "$links"
+ensure_line "notes" "$links"
+
+exclude="$common/info/exclude"
+mkdir -p "$(dirname "$exclude")" "$hooks_dir"
+touch "$exclude"
+ensure_line "/.pi/" "$exclude"
+ensure_line "/.scratch" "$exclude"
+ensure_line "/.out-of-scope" "$exclude"
+ensure_line "/CONTEXT.md" "$exclude"
+ensure_line "/NOTES.md" "$exclude"
+ensure_line "/AGENTS.md" "$exclude"
+ensure_line "/docs/adr" "$exclude"
+ensure_line "/docs/agents" "$exclude"
+ensure_line "/notes" "$exclude"
+ensure_line "/.herdr-worktree-links" "$exclude"
+
+for name in pre-commit pre-merge-commit pre-push; do
+  install -m 755 "$tmp/$name" "$hooks_dir/$name"
+done
+
+if $new_state; then
+  echo "Initialized agent-state overlay in $root"
+else
+  echo "Agent-state overlay already configured in $root"
+fi

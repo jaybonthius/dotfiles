@@ -28,6 +28,10 @@
       url = "github:third774/herdr-last-workspace/8b55ebf15deaa52b49ff1c2500aab0c19c729420";
       flake = false;
     };
+    herdr-symlink-worktree = {
+      url = "github:hmu332233/herdr-symlink-worktree/1af90cf40eef743c918df21badf33b99edadd09f";
+      flake = false;
+    };
   };
 
   outputs =
@@ -40,6 +44,7 @@
       herdr,
       herdr-sessionizer,
       herdr-last-workspace,
+      herdr-symlink-worktree,
       ...
     }:
     let
@@ -62,6 +67,7 @@
               herdr
               herdr-sessionizer
               herdr-last-workspace
+              herdr-symlink-worktree
               ;
           };
         };

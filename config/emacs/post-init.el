@@ -472,6 +472,15 @@ Written by the macOS sync script when system appearance changes.")
 (defvar jb-theme--watch-descriptor nil
   "File-notify descriptor for the theme state file watcher.")
 
+(defvar jb-theme--apply-timer nil
+  "Pending timer for applying a theme state change.")
+
+(defun jb-theme--cancel-pending-apply ()
+  "Cancel any pending theme apply."
+  (when jb-theme--apply-timer
+    (cancel-timer jb-theme--apply-timer)
+    (setq jb-theme--apply-timer nil)))
+
 (defun jb-theme-current-mode ()
   "Return `dark' or `light' based on `jb-theme-state-file' contents.
 Falls back to `dark' if the file is missing or unreadable."
@@ -497,8 +506,14 @@ EVENT is the notification event from `file-notify-add-watch'."
   (let ((action (nth 1 event)))
     (cond
      ((memq action '(changed created renamed))
-      ;; Small delay to ensure the file write is complete.
-      (run-with-timer 0.1 nil #'jb-theme-apply))
+      ;; Debounce notifications and allow the file write to complete.
+      (jb-theme--cancel-pending-apply)
+      (setq jb-theme--apply-timer
+            (run-with-timer
+             0.1 nil
+             (lambda ()
+               (setq jb-theme--apply-timer nil)
+               (jb-theme-apply)))))
      ((eq action 'deleted)
       ;; File was deleted (e.g. atomic replacement creates a new inode).
       ;; Re-establish the watch once the new file appears.
@@ -511,6 +526,7 @@ events on a directory for in-place content changes to contained files.
 On inotify (Linux), watch the directory since inotify's close_write on
 a directory correctly fires when contained files are written.
 Also re-applies the current theme."
+  (jb-theme--cancel-pending-apply)
   ;; Remove any existing watcher.
   (when jb-theme--watch-descriptor
     (ignore-errors (file-notify-rm-watch jb-theme--watch-descriptor))
@@ -538,6 +554,7 @@ Also re-applies the current theme."
   "Start watching `jb-theme-state-file' and apply the current theme.
 Ensures required directories and files exist, sets up file-notify."
   (interactive)
+  (jb-theme--cancel-pending-apply)
   (let ((dir (file-name-directory jb-theme-state-file)))
     (unless (file-exists-p dir)
       (make-directory dir t)))
@@ -549,6 +566,7 @@ Ensures required directories and files exist, sets up file-notify."
 (defun jb-theme-stop-watcher ()
   "Stop watching the theme state file."
   (interactive)
+  (jb-theme--cancel-pending-apply)
   (when jb-theme--watch-descriptor
     (file-notify-rm-watch jb-theme--watch-descriptor)
     (setq jb-theme--watch-descriptor nil)
@@ -2079,6 +2097,14 @@ Produces a line like: # Input ----------------------------------------------"
   :custom
   (json-ts-mode-indent-offset 2))
 
+;;; SSH configuration
+
+;; ssh-config-mode: major modes for SSH client/server configuration,
+;; known_hosts, and authorized_keys files.
+(use-package ssh-config-mode
+  :ensure (:host github :repo "peterhoeg/ssh-config-mode-el")
+  :defer t)
+
 ;;; Terraform
 
 ;; terraform-mode: major mode for Terraform/HCL configuration files.
@@ -2142,6 +2168,8 @@ Produces a line like: # Input ----------------------------------------------"
   :mode (("\\.markdown\\'" . markdown-mode)
          ("\\.md\\'" . markdown-mode)
          ("README\\.md\\'" . gfm-mode))
+  :custom
+  (markdown-fontify-code-blocks-natively t)
   :bind
   (:map markdown-mode-map
         ("C-c C-e" . markdown-do)))
