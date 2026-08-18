@@ -220,6 +220,7 @@ in
     # A Nix-wrapped GCC intentionally cannot see packages installed by apt.
     ++ lib.optionals (!stdenv.isLinux) [
       gcc
+      clang-tools # clangd and clang-format
     ]
     ++ lib.optionals stdenv.isLinux [
       netcat-openbsd

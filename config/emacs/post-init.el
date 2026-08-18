@@ -1649,7 +1649,9 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   (treesit-auto-install 'prompt))
 
 (setq major-mode-remap-alist
-      '((python-mode    . python-ts-mode)
+      '((c-mode         . c-ts-mode)
+        (c++-mode       . c++-ts-mode)
+        (python-mode    . python-ts-mode)
         (json-mode      . json-ts-mode)
         (sh-mode        . bash-ts-mode)
         (css-mode       . css-ts-mode)
@@ -2018,6 +2020,18 @@ When no project is detected, always fall back to `dired' for DIR."
 ;; Ensure project.el is loaded during init so context hooks are active
 ;; before the first emacsclient frame is created.
 (require 'project)
+
+;;; C / C++
+
+;; c-ts-mode and c++-ts-mode: tree-sitter based C/C++ modes (built-in).
+;; Eglot automatically selects clangd when it is available on PATH.
+(use-package c-ts-mode
+  :ensure nil
+  :defer t
+  :hook ((c-ts-mode . eglot-ensure)
+         (c++-ts-mode . eglot-ensure)))
+
+;;; Go
 
 ;; go-ts-mode: tree-sitter based Go major mode (built-in).
 ;; Hooks: eglot for LSP, format + organize imports on save.
