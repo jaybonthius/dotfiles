@@ -234,7 +234,9 @@ Preserves rich terminal rendering (color/progress/cursor control)."
   (which-key-idle-delay 1.5)
   (which-key-idle-secondary-delay 0.25)
   (which-key-add-column-padding 1)
-  (which-key-max-description-length 40))
+  (which-key-max-description-length 40)
+  :config
+  (which-key-add-key-based-replacements "C-c l" "language"))
 
 ;;; Autosave
 
@@ -1007,6 +1009,24 @@ Ensures required directories and files exist, sets up file-notify."
 
   (treemacs-hide-gitignored-files-mode nil))
 
+;; symbols-outline: Eglot-powered document symbol tree in a right sidebar.
+;; This complements Treemacs's project/file tree on the left.
+(use-package symbols-outline
+  :ensure t
+  :commands symbols-outline-show
+  :custom
+  (symbols-outline-window-position 'right)
+  (symbols-outline-use-nerd-icon-in-tui nil)
+  :init
+  (defun jb-symbols-outline-use-eglot ()
+    "Use Eglot document symbols only while the buffer is managed."
+    (if (eglot-managed-p)
+        (setq-local symbols-outline-fetch-fn #'symbols-outline-lsp-fetch)
+      (kill-local-variable 'symbols-outline-fetch-fn)))
+  (add-hook 'eglot-managed-mode-hook #'jb-symbols-outline-use-eglot)
+  :config
+  (symbols-outline-follow-mode 1))
+
 ;; (use-package treemacs-evil
 ;;   :after (treemacs evil))
 
@@ -1402,6 +1422,12 @@ takes priority and the underlying mode's keys are suppressed."
 
 ;;;; TODO: consult-dir-jump-file doesn't seem to be working...
 
+;; consult-eglot: narrowed, asynchronous workspace symbol search.
+(use-package consult-eglot
+  :ensure t
+  :after (consult eglot)
+  :commands consult-eglot-symbols)
+
 ;;; ============================================================================
 ;;; Completion (in-buffer): Corfu + Cape
 ;;; ============================================================================
@@ -1668,6 +1694,11 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
 ;;; Code navigation
 ;;; ============================================================================
 
+;; breadcrumb: project and Eglot/Imenu symbol paths in the header line.
+(use-package breadcrumb
+  :ensure t
+  :hook (elpaca-after-init . breadcrumb-mode))
+
 ;; dumb-jump: jump-to-definition using ripgrep/grep heuristics.
 ;; Falls back gracefully when no LSP is available.
 (use-package dumb-jump
@@ -1894,7 +1925,15 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
   (add-to-list 'eglot-server-programs
                '(swift-mode . ("xcrun" "sourcekit-lsp")))
 
-  (add-hook 'eglot-managed-mode-hook (lambda () (eglot-inlay-hints-mode -1)))
+  ;; Show clangd's parameter/type hints in C/C++ while keeping the quieter
+  ;; no-inlay-hints default for other language servers.
+  (defun jb-eglot-configure-inlay-hints ()
+    "Enable Eglot inlay hints only in managed C and C++ buffers."
+    (if (and (eglot-managed-p)
+             (derived-mode-p 'c-mode 'c++-mode 'c-ts-mode 'c++-ts-mode))
+        (eglot-inlay-hints-mode 1)
+      (eglot-inlay-hints-mode -1)))
+  (add-hook 'eglot-managed-mode-hook #'jb-eglot-configure-inlay-hints)
 
   ;; Eldoc: single-line echo area by default; full docs on demand via C-c d.
   ;; Prevents the echo area from resizing and the *eldoc* buffer from
@@ -2021,15 +2060,62 @@ When no project is detected, always fall back to `dired' for DIR."
 ;; before the first emacsclient frame is created.
 (require 'project)
 
+;;; Language tools
+
+;; Discoverable Eglot/Dape command group; which-key labels the C-c l prefix.
+(defvar-keymap jb-language-tools-map
+  :doc "Language intelligence and debugging commands."
+  "a" #'eglot-code-actions
+  "b" #'flymake-show-buffer-diagnostics
+  "B" #'dape-breakpoint-toggle
+  "d" #'xref-find-definitions
+  "e" #'flymake-show-project-diagnostics
+  "f" #'eglot-format-buffer
+  "h" #'eldoc-doc-buffer
+  "i" #'eglot-find-implementation
+  "o" #'symbols-outline-show
+  "r" #'xref-find-references
+  "R" #'eglot-rename
+  "s" #'consult-eglot-symbols
+  "t" #'eglot-find-typeDefinition
+  "x" #'dape)
+
+(keymap-global-set "C-c l" jb-language-tools-map)
+
 ;;; C / C++
+
+(defun jb-c-cpp-enable-auto-completion ()
+  "Enable prompt Corfu completion in C and C++ buffers."
+  (setq-local corfu-auto t
+              corfu-auto-delay 0.1
+              corfu-auto-prefix 2))
 
 ;; c-ts-mode and c++-ts-mode: tree-sitter based C/C++ modes (built-in).
 ;; Eglot automatically selects clangd when it is available on PATH.
 (use-package c-ts-mode
   :ensure nil
   :defer t
-  :hook ((c-ts-mode . eglot-ensure)
+  :hook ((c-mode . jb-c-cpp-enable-auto-completion)
+         (c++-mode . jb-c-cpp-enable-auto-completion)
+         (c-ts-mode . jb-c-cpp-enable-auto-completion)
+         (c++-ts-mode . jb-c-cpp-enable-auto-completion)
+         (c-mode . eglot-ensure)
+         (c++-mode . eglot-ensure)
+         (c-ts-mode . eglot-ensure)
          (c++-ts-mode . eglot-ensure)))
+
+;;; Debugging
+
+;; dape: Emacs-native Debug Adapter Protocol client.  GDB 14.1+ provides
+;; the adapter directly on Linux; lldb-dap is used on macOS.
+(use-package dape
+  :ensure t
+  :commands (dape dape-breakpoint-toggle dape-kill dape-restart)
+  :custom
+  (dape-buffer-window-arrangement 'right)
+  :config
+  (dape-breakpoint-global-mode 1)
+  (repeat-mode 1))
 
 ;;; Go
 
