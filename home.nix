@@ -195,6 +195,12 @@ in
       nixd
       nixfmt
 
+      # C/C++ language and build tooling
+      clang-tools
+      cmake
+      ninja
+      bear
+
       # Utilities
       ripgrep
       cmark
@@ -216,16 +222,18 @@ in
       # Custom packages
       opener
     ]
-    # On Linux use the distro toolchain so it sees distro -dev headers/libs.
-    # A Nix-wrapped GCC intentionally cannot see packages installed by apt.
+    # On Linux use the distro compiler so builds see distro -dev headers/libs.
+    # clangd remains Nix-managed and reads the real compiler from each project's
+    # compilation database.
     ++ lib.optionals (!stdenv.isLinux) [
       gcc
-      clang-tools # clangd and clang-format
     ]
     ++ lib.optionals stdenv.isLinux [
+      gdb # Native DAP adapter for dape (GDB 14.1+)
       netcat-openbsd
     ]
     ++ lib.optionals stdenv.isDarwin [
+      lldb # Provides lldb-dap for dape
       netcat
     ]
     ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
