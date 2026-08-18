@@ -12,7 +12,11 @@ Own the authorized body of work from the current top-level Pi session. Keep orch
 
 Inspect the supplied spec, issues, comments, repository state, applicable `AGENTS.md` or `CLAUDE.md`, `docs/agents/`, domain context, ADRs, tracker conventions, and validation entry points before delegating. Resolve every supplied source and artifact location to an absolute path.
 
-Identify the authorized outcomes, dependency order, non-goals, test seams, validation gates, target branch, writable repositories, artifact ownership, commit conventions, and stop condition. Treat each milestone, ticket, or independently reviewable facility as one `develop` outcome.
+Start with proportionality. For one coherent session-sized change, use one short inline contract, one `develop` outcome, and one delivery worktree. Create or update durable specs, tickets, research, ADRs, and receipts only when the owner requests them, an existing tracker requires them, or they preserve a material restart point or reusable decision. Use owner-supplied or repository-existing milestones and genuinely independent deliverables; do not manufacture milestones or artifacts to create orchestration checkpoints.
+
+Identify the authorized outcomes, dependency order, non-goals, test seams, validation gates, target branch, writable repositories, artifact ownership, commit conventions, and stop condition. Trace every proposed outcome, changed path, artifact, dependency, and validation gate to the owner request or an applicable mandatory instruction. Research and child-agent advice may inform implementation choices but cannot create scope or acceptance requirements. Review against the original owner outcome and repository instructions, not only an agent-authored contract.
+
+Use the repository's standard focused and full validation by default. Add performance, load, container, deployment, compatibility, or other specialized gates only when the owner or an existing mandatory acceptance condition requires them, or when they are necessary to prove the authorized change on that surface. Do not promote a speculative risk or an unrelated pre-existing failure into a gate.
 
 Ask the owner only when evidence cannot settle a required product, behavior, API, persistence, security, compatibility, scope, or architecture decision. State the observed convention, concrete tradeoffs, and one recommendation before asking.
 
@@ -40,6 +44,7 @@ For every child:
 - Set `cwd` to the exact Herdr worktree or artifact-lane path.
 - Set managed `worktree` isolation off; the Herdr checkout already provides the lane.
 - Pass the absolute spec, issue, context, and artifact sources it needs.
+- Pass the original owner outcome and only requirements whose provenance survives the contract check; never promote another child's proposal into authority by copying it into a later prompt.
 - State the single outcome, non-goals, test seam, allowed paths, branch, base commit, commit boundary, validation contract, authority, and required handoff.
 - Use fresh context when durable artifacts contain the contract. Fork only when inherited conversation reasoning is itself authoritative.
 - Give implementation and fix children an explicit timeout suitable for the outcome. Keep the session-wide spawn budget available for reviews, fixes, and recovery.
@@ -51,12 +56,12 @@ Use foreground children when the next action depends on their result. Run indepe
 For each ready outcome:
 
 1. Confirm the delivery worktree is on the expected branch and commit and has no unexplained changes.
-2. Complete required prior-art research against primary sources and save durable findings only in the repository-established location.
+2. Complete only the prior-art research needed to resolve implementation facts. Save durable findings only when the contract's artifact criterion is met and use the repository-established location.
 3. Launch one implementation worker as the sole writer for its checkout. Require coherent local commits, validation evidence, commit IDs, changed paths, and clean status.
-4. Inspect the committed diff and evidence. Launch fresh read-only Standards and Spec reviewers with distinct contracts. Add security, compatibility, performance, documentation, or workflow review only when the outcome requires it.
-5. Synthesize evidence-backed findings. Launch exactly one fix writer for accepted findings, then rerun affected reviews and validation.
+4. Inspect the committed diff and evidence. Launch fresh read-only Standards and Spec reviewers with distinct contracts grounded in the original owner outcome. Add security, compatibility, performance, documentation, or workflow review only when the authorized outcome requires it.
+5. Synthesize findings against their requirement provenance. Reject findings about unchanged or unrelated systems and findings that merely expand the agent-authored contract. Launch exactly one fix writer for accepted in-scope findings, then rerun affected reviews and validation.
 6. Verify commit reachability, final diff, validation evidence, and clean lane status independently.
-7. Commit a durable outcome receipt through a separate artifact writer when the tracker belongs to another worktree. Include product and artifact commits, changed paths, commands and results, review disposition, residual risks, and the next unblocked outcome.
+7. Report the outcome inline unless an existing tracker or owner-requested artifact must record it. When that tracker belongs to another worktree, commit its update through one artifact writer with product and artifact commits, changed paths, commands and results, review disposition, residual risks, and the next unblocked outcome.
 
 Advance only after the outcome passes its gates and no owner decision remains.
 
@@ -72,7 +77,7 @@ Preserve every worktree after integration so the owner can inspect it. Mark whet
 
 Local branches, Herdr worktrees, commits, and integration into the authorized delivery branch are part of execution. Pushes, merges into protected or upstream branches, publication, release, deployment, version changes, destructive cleanup, and scope expansion require explicit owner authority.
 
-Escalate missing credentials, unavailable required tooling, unexplained workspace changes, unsafe integration, and validation failures that require scope change. Do not invent workarounds to owner-resolvable blockers.
+Escalate missing credentials, unavailable required tooling, unexplained workspace changes, unsafe integration, and failures of required validation that need scope change. A failure from an unnecessary or unrelated command is not a blocker: remove that command from the plan rather than expanding scope around it. Do not invent workarounds to owner-resolvable blockers.
 
 If interrupted, return a recovery receipt naming completed outcomes, active direct children, Herdr workspace IDs and paths, branches and commits, artifact state, validation state, open decisions, and the exact next ready action.
 
