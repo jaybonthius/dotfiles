@@ -225,6 +225,14 @@ Preserves rich terminal rendering (color/progress/cursor control)."
   :custom
   (save-place-limit 400))
 
+;; EditorConfig: apply project-owned indentation and whitespace settings.
+;; Built into Emacs 30; no external package or language-specific glue required.
+(use-package editorconfig
+  :ensure nil
+  :demand t
+  :config
+  (editorconfig-mode 1))
+
 ;; which-key: display available keybindings in a popup.
 (use-package which-key
   :ensure nil ; builtin since Emacs 30
