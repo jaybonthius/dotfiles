@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "Pi Annotate",
   "version": "0.4.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq3KsznbZP5pKo3T1EzsCD1uetpCfFd1/k83n7zbAPvm0zdtp1j8n0+se1oKO5J5ntFTtZDFSBk6zMseELgw0Or6QIRIKOrGabEmv7l6gGEcVwxTp0k8wcXlBPpa4OQJv8dS7XFlqKn4P7MedQxmHtGk1hRh0IRWEYTZw3/UqQ81SgUTBU1yMXcWDo0zGIXGOcpFRyi6TRPcq+RiexpctuFdG7z3xY9NzKFPTCDntlJAP6+4JiVSCZT7+k6A1d8NQgxc++5DP3H439yTZquNXVO/9mIOxXpya35WPOYglVL237nLOoPwVDsxvS7XtJsr7RFt4DUQsOVCy4zlR5p0KKQIDAQAB",
+  "minimum_chrome_version": "116",
   "description": "Visual annotation tool for Pi coding agent",
   
   "permissions": [
     "activeTab",
-    "nativeMessaging",
     "scripting"
   ],
   "host_permissions": [

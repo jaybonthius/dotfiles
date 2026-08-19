@@ -1,13 +1,19 @@
 /**
  * Pi Annotate - Background Service Worker
- * 
- * Connects to native messaging host and forwards messages between
- * the native host (Pi) and content scripts.
+ *
+ * Connects to the Linux relay through an SSH-forwarded WebSocket and
+ * forwards messages between Pi and content scripts.
  */
 
-let nativePort = null;
+const RELAY_URL = "ws://127.0.0.1:43173";
+const HEARTBEAT_INTERVAL_MS = 20000;
+const RECONNECT_DELAY_MS = 2000;
+
+let relaySocket = null;
+let reconnectTimer = null;
+let heartbeatTimer = null;
 let pendingPing = null;
-let lastNativeDisconnectError = "";
+let lastRelayDisconnectError = "";
 const requestTabs = new Map();
 
 function getRequestId(msg) {
@@ -26,16 +32,29 @@ function resolvePendingPing(result) {
   pendingPing = null;
 }
 
-function pingNative() {
-  if (!nativePort) {
-    return Promise.resolve({
+function sendPendingPing(socket) {
+  if (!pendingPing || pendingPing.socket !== socket || pendingPing.sent) return;
+  if (relaySocket !== socket || socket.readyState !== WebSocket.OPEN) return;
+  pendingPing.sent = true;
+  try {
+    socket.send(JSON.stringify({ type: "PING" }));
+  } catch (err) {
+    resolvePendingPing({
       connected: false,
-      error: lastNativeDisconnectError || "Native host not connected",
+      error: err instanceof Error ? err.message : String(err),
     });
   }
+}
 
-  if (pendingPing) {
-    return pendingPing.promise;
+function pingRelay() {
+  if (pendingPing) return pendingPing.promise;
+
+  const socket = relaySocket;
+  if (!socket || ![WebSocket.CONNECTING, WebSocket.OPEN].includes(socket.readyState)) {
+    return Promise.resolve({
+      connected: false,
+      error: lastRelayDisconnectError || "Relay not connected",
+    });
   }
 
   let resolvePing;
@@ -46,34 +65,23 @@ function pingNative() {
   const timeoutId = setTimeout(() => {
     if (!pendingPing || pendingPing.promise !== promise) return;
     pendingPing = null;
-    resolvePing({ connected: false, error: "Timeout - native host not responding" });
+    resolvePing({ connected: false, error: "Timeout - relay not responding" });
   }, 3000);
 
-  pendingPing = { promise, resolve: resolvePing, timeoutId };
-
-  try {
-    nativePort.postMessage({ type: "PING" });
-  } catch (err) {
-    clearTimeout(timeoutId);
-    pendingPing = null;
-    resolvePing({
-      connected: false,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
+  pendingPing = { promise, resolve: resolvePing, timeoutId, socket, sent: false };
+  sendPendingPing(socket);
   return promise;
 }
 
 function sendToNative(msg) {
-  if (!nativePort) {
-    console.error("[pi-annotate] Cannot send to native host - not connected");
+  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) {
+    console.error("[pi-annotate] Cannot send to relay - not connected");
     return;
   }
   try {
-    nativePort.postMessage(msg);
+    relaySocket.send(JSON.stringify(msg));
   } catch (err) {
-    console.error("[pi-annotate] Failed to send to native host:", err);
+    console.error("[pi-annotate] Failed to send to relay:", err);
   }
 }
 
@@ -140,21 +148,50 @@ async function togglePicker() {
   }
 }
 
-function connectNative() {
-  if (nativePort) return;
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectRelay();
+  }, RECONNECT_DELAY_MS);
+}
 
-  console.log("[pi-annotate] Connecting to native host...");
-  const port = chrome.runtime.connectNative("com.pi.annotate");
-  nativePort = port;
-  
-  port.onMessage.addListener((msg) => {
-    if (msg?.type === "PONG") {
-      lastNativeDisconnectError = "";
-      resolvePendingPing({ connected: true });
+function connectRelay() {
+  if (relaySocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(relaySocket.readyState)) return;
+
+  console.log("[pi-annotate] Connecting to relay...");
+  const socket = new WebSocket(RELAY_URL);
+  relaySocket = socket;
+
+  socket.addEventListener("open", () => {
+    if (relaySocket !== socket) return;
+    lastRelayDisconnectError = "";
+    sendPendingPing(socket);
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = setInterval(() => {
+      if (relaySocket === socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "PING" }));
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  });
+
+  socket.addEventListener("message", (event) => {
+    let msg;
+    try {
+      msg = JSON.parse(event.data);
+    } catch (err) {
+      console.error("[pi-annotate] Invalid relay message:", err);
       return;
     }
 
-    console.log("[pi-annotate] From native host:", msg);
+    if (msg?.type === "PONG") {
+      const error = typeof msg.error === "string" && msg.error ? msg.error : "Pi interface not ready";
+      lastRelayDisconnectError = msg.ready === true ? "" : error;
+      resolvePendingPing(msg.ready === true ? { connected: true } : { connected: false, error });
+      return;
+    }
+
+    console.log("[pi-annotate] From relay:", msg);
     
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (!tabs[0]?.id) {
@@ -210,16 +247,21 @@ function connectNative() {
       }
     });
   });
-  
-  port.onDisconnect.addListener(() => {
-    const error = chrome.runtime.lastError?.message || "Native host disconnected unexpectedly";
-    console.log("[pi-annotate] Native host disconnected", error);
-    lastNativeDisconnectError = error;
+
+  socket.addEventListener("error", () => {
+    if (relaySocket === socket) lastRelayDisconnectError = `Cannot reach ${RELAY_URL}`;
+  });
+
+  socket.addEventListener("close", (event) => {
+    if (relaySocket !== socket) return;
+    const error = event.reason || lastRelayDisconnectError || "Relay disconnected unexpectedly";
+    console.log("[pi-annotate] Relay disconnected", error);
+    lastRelayDisconnectError = error;
     resolvePendingPing({ connected: false, error });
-    if (nativePort === port) {
-      nativePort = null;
-    }
-    setTimeout(connectNative, 2000);
+    relaySocket = null;
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+    scheduleReconnect();
   });
 }
 
@@ -228,7 +270,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log("[pi-annotate] Message:", msg.type);
   
   if (msg.type === "CHECK_CONNECTION") {
-    pingNative().then(sendResponse);
+    pingRelay().then(sendResponse);
     return true;
   }
 
@@ -259,7 +301,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   
   if (["ANNOTATIONS_COMPLETE", "CANCEL"].includes(msg.type)) {
     if (requestId) requestTabs.delete(requestId);
-    console.log("[pi-annotate] Forwarding to native host:", msg.type);
+    console.log("[pi-annotate] Forwarding to relay:", msg.type);
     sendToNative(msg);
   }
 });
@@ -272,5 +314,5 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 // Connect on startup
-connectNative();
+connectRelay();
 console.log("[pi-annotate] Background script loaded");

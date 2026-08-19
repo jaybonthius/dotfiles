@@ -196,18 +196,17 @@
   <!-- Setup State -->
   <div id="setup-section">
     <div class="section">
-      <div class="label">Extension ID</div>
+      <div class="label">Relay Endpoint</div>
       <div class="field">
-        <input type="text" id="ext-id" readonly>
-        <button class="btn" id="copy-id">Copy</button>
+        <input type="text" id="relay-url" value="ws://127.0.0.1:43173" readonly>
       </div>
     </div>
 
     <div class="section">
-      <div class="label">Install Command</div>
+      <div class="label">Mac SSH Config</div>
       <div class="field">
-        <input type="text" id="install-cmd" readonly>
-        <button class="btn" id="copy-cmd">Copy</button>
+        <input type="text" id="forward-config" value="LocalForward 127.0.0.1:43173 127.0.0.1:43173" readonly>
+        <button class="btn" id="copy-forward">Copy</button>
       </div>
     </div>
   </div>
@@ -219,18 +218,16 @@
       <div class="detail" id="trouble-detail"></div>
     </div>
     <ul class="trouble-tips">
-      <li>Re-run install command with correct ID</li>
-      <li id="quit-tip">Fully quit Chrome and reopen</li>
-      <li>Check that paths exist in install output</li>
+      <li>Check that the Linux pi-annotate relay service is running</li>
+      <li>Check that SSH is connected with the LocalForward above</li>
+      <li>Reload the unpacked extension after changing its files</li>
     </ul>
     <div style="margin-top: 10px;">
       <button class="btn" id="retry-btn" style="width: 100%;">Retry Connection</button>
     </div>
   </div>
 
-  <div class="footer">
-    <a href="https://github.com/nicobailon/pi-annotate#quick-start" target="_blank">Setup Guide →</a>
-  </div>
+  <div class="footer">SSH-tunnel transport fork</div>
 
   <script src="popup.js"></script>
 </body>

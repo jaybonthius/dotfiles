@@ -1,34 +1,19 @@
 // Pi Annotate - Popup Script
 
-const extId = chrome.runtime.id;
-const isWindows = navigator.platform.toUpperCase().includes('WIN');
-const installCmd = isWindows ? `.\\install-windows.cmd ${extId}` : `./install.sh ${extId}`;
+const forwardConfig = 'LocalForward 127.0.0.1:43173 127.0.0.1:43173';
 
 // Elements
-const extIdInput = document.getElementById('ext-id');
-const installCmdInput = document.getElementById('install-cmd');
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 const setupSection = document.getElementById('setup-section');
 const readySection = document.getElementById('ready-section');
 const troubleSection = document.getElementById('trouble-section');
 
-// Populate fields
-extIdInput.value = extId;
-installCmdInput.value = installCmd;
-
 // Platform-aware displays
 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 const shortcutEl = document.getElementById('shortcut-key');
 if (shortcutEl) {
   shortcutEl.textContent = isMac ? '⌘ Shift P' : 'Ctrl+Shift+P';
-}
-const quitTipEl = document.getElementById('quit-tip');
-if (quitTipEl) {
-  // Mac has ⌘Q, Windows/Linux don't have a universal quit shortcut
-  quitTipEl.textContent = isMac 
-    ? 'Fully quit the supported browser (⌘Q) and reopen' 
-    : 'Fully quit the supported browser (menu → Exit) and reopen';
 }
 
 // Copy functionality
@@ -52,12 +37,8 @@ function copyToClipboard(text, btn) {
   });
 }
 
-document.getElementById('copy-id').addEventListener('click', (e) => {
-  copyToClipboard(extId, e.target);
-});
-
-document.getElementById('copy-cmd').addEventListener('click', (e) => {
-  copyToClipboard(installCmd, e.target);
+document.getElementById('copy-forward').addEventListener('click', (e) => {
+  copyToClipboard(forwardConfig, e.target);
 });
 
 // Start annotation button — routes through background script which handles injection
@@ -80,14 +61,6 @@ function setConnected() {
   troubleSection.style.display = 'none';
 }
 
-function setNotInstalled(detail) {
-  statusDot.className = 'status-dot';
-  statusText.textContent = detail || 'Not installed';
-  setupSection.style.display = 'block';
-  readySection.style.display = 'none';
-  troubleSection.style.display = 'none';
-}
-
 function setTrouble(error) {
   statusDot.className = 'status-dot trouble';
   statusText.textContent = 'Connection issue';
@@ -106,8 +79,7 @@ function setChecking() {
   troubleSection.style.display = 'none';
 }
 
-// Check connection through the background service worker.
-// Opening a second native port from the popup would spawn a second host process.
+// Check the relay connection through the background service worker.
 async function checkConnection() {
   setChecking();
 
@@ -120,17 +92,7 @@ async function checkConnection() {
       return;
     }
 
-    if (error.includes('not found')) {
-      setNotInstalled('Native host not found');
-      return;
-    }
-
-    if (error.includes('forbidden')) {
-      setNotInstalled('Extension ID mismatch - reinstall native host');
-      return;
-    }
-
-    setTrouble(error || 'Native host disconnected unexpectedly');
+    setTrouble(error || 'Relay or SSH tunnel disconnected unexpectedly');
   } catch (err) {
     setTrouble(err instanceof Error ? err.message : String(err));
   }

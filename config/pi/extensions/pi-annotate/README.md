@@ -1,3 +1,5 @@
+> **Local transport fork:** This checkout vendors upstream `pi-annotate@0.5.0` and replaces native messaging with a browser-initiated WebSocket through an SSH local forward. Follow [FORK.md](FORK.md) for deployment. Do not use the upstream Quick Start, Architecture, or Troubleshooting sections below to deploy or diagnose this fork; they are retained only as upstream behavior reference.
+
 <p>
   <img src="banner.png" alt="Pi Annotate" width="1100">
 </p>
