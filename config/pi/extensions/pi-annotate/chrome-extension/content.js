@@ -70,6 +70,8 @@
   // ─────────────────────────────────────────────────────────────────────
   
   let isActive = false;
+  let isPicking = false;
+  let pickerListenersAttached = false;
   let requestId = null;
   let multiSelectMode = false;
   let screenshotMode = "each"; // "each" | "full" | "none"
@@ -310,6 +312,23 @@
     .pi-note-card.dragging {
       opacity: 0.9;
       cursor: grabbing;
+    }
+
+    html:has(#pi-panel:not(.pi-pass-through)) body {
+      cursor: crosshair !important;
+    }
+
+    html:has(#pi-panel.pi-pass-through) #pi-highlight,
+    html:has(#pi-panel.pi-pass-through) #pi-tooltip,
+    html:has(#pi-panel.pi-pass-through) #pi-markers,
+    html:has(#pi-panel.pi-pass-through) .pi-notes-container,
+    html:has(#pi-panel.pi-pass-through) .pi-connectors {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    html:has(#pi-panel.pi-pass-through) [data-pi-changed] {
+      outline: none !important;
     }
     
     .pi-note-header {
@@ -693,7 +712,7 @@
       activate();
     } else if (msg.type === "TOGGLE_PICKER") {
       if (isActive) {
-        deactivate();
+        setPickerMode(!isPicking);
       } else {
         activate();
       }
@@ -729,18 +748,69 @@
     createNotesContainer();
     createPanel();
     startModalGuards();
-    
-    // Add listeners
+
+    setPickerMode(true);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleResize);
+    console.log("[pi-annotate] Activated");
+  }
+
+  function attachPickerListeners() {
+    if (pickerListenersAttached) return;
     document.addEventListener("mousemove", onMouseMove, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("wheel", onWheel, { passive: false, capture: true });
     document.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("scroll", handleScroll, true);
-    window.addEventListener("resize", handleResize);
     initDragHandlers();
-    
-    document.body.style.cursor = "crosshair";
-    console.log("[pi-annotate] Activated");
+    pickerListenersAttached = true;
+  }
+
+  function detachPickerListeners() {
+    if (!pickerListenersAttached) return;
+    document.removeEventListener("mousemove", onMouseMove, true);
+    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("wheel", onWheel, true);
+    document.removeEventListener("keydown", onKeyDown, true);
+    cleanupDragHandlers();
+    pickerListenersAttached = false;
+  }
+
+  function setPickerMode(picking) {
+    if (!isActive) return;
+    isPicking = Boolean(picking);
+
+    if (isPicking) {
+      attachPickerListeners();
+    } else {
+      detachPickerListeners();
+      hideHighlight();
+      hideTooltip();
+      elementStack = [];
+      stackIndex = 0;
+    }
+
+    panelEl?.classList.toggle("pi-pass-through", !isPicking);
+    const pickButton = document.getElementById("pi-picker-pick");
+    const passButton = document.getElementById("pi-picker-pass");
+    if (pickButton && passButton) {
+      pickButton.classList.toggle("active", isPicking);
+      pickButton.setAttribute("aria-pressed", String(isPicking));
+      passButton.classList.toggle("active", !isPicking);
+      passButton.setAttribute("aria-pressed", String(!isPicking));
+    }
+    const hint = panelEl?.querySelector(".pi-hint");
+    if (hint) {
+      hint.textContent = isPicking
+        ? `Click elements • ${ALT_KEY_LABEL}+scroll cycles parents • ESC to close`
+        : "Pass-through • page interaction released • use this control or the shortcut to return";
+    }
+
+    if (isPicking) {
+      handleResize();
+      console.log("[pi-annotate] Pick mode");
+    } else {
+      console.log("[pi-annotate] Pass-through mode");
+    }
   }
   
   function resetState() {
@@ -771,6 +841,7 @@
     etchChangeCount = 0;
     updateEtchCounter();
     clearEtchMarkers();
+    setPickerMode(true);
     
     // Reset UI elements
     if (markersContainer) markersContainer.innerHTML = "";
@@ -821,17 +892,13 @@
   function deactivate() {
     if (!isActive) return;
     isActive = false;
-    
-    document.removeEventListener("mousemove", onMouseMove, true);
-    document.removeEventListener("click", onClick, true);
-    document.removeEventListener("wheel", onWheel, { capture: true });
-    document.removeEventListener("keydown", onKeyDown, true);
+
+    detachPickerListeners();
     stopModalGuards();
     window.removeEventListener("scroll", handleScroll, true);
     window.removeEventListener("resize", handleResize);
-    cleanupDragHandlers();
 
-    document.body.style.cursor = "";
+    isPicking = false;
     panelDock = "bottom";
     panelCollapsed = false;
 
@@ -942,6 +1009,10 @@
     panelEl.innerHTML = `
       <div class="pi-header">
         <span class="pi-logo">π Annotate</span>
+        <div class="pi-mode-toggle" title="Choose whether Pi captures page interaction">
+          <button class="pi-mode-btn active" id="pi-picker-pick" aria-pressed="true" title="Capture page interaction to select elements">Pick</button>
+          <button class="pi-mode-btn" id="pi-picker-pass" aria-pressed="false" title="Release page interaction while keeping this session open">Pass-through</button>
+        </div>
         <span class="pi-hint">Click elements • ${ALT_KEY_LABEL}+scroll cycles parents • ESC to close</span>
         <div class="pi-panel-controls">
           <button class="pi-panel-control" id="pi-dock-toggle" title="Move panel to the top or bottom">Dock top</button>
@@ -996,6 +1067,8 @@
     document.getElementById("pi-submit").addEventListener("click", handleSubmit);
     document.getElementById("pi-dock-toggle").addEventListener("click", () => setPanelDock(panelDock === "bottom" ? "top" : "bottom"));
     document.getElementById("pi-collapse-toggle").addEventListener("click", () => setPanelCollapsed(!panelCollapsed));
+    document.getElementById("pi-picker-pick").addEventListener("click", () => setPickerMode(true));
+    document.getElementById("pi-picker-pass").addEventListener("click", () => setPickerMode(false));
     
     // Mode toggle
     document.getElementById("pi-mode-single").addEventListener("click", () => setMultiMode(false));
@@ -1024,6 +1097,7 @@
       const toggle = e.target.closest(".pi-etch-toggle");
       if (e.target.checked) {
         startEtchCapture();
+        setPickerMode(false);
         if (toggle) toggle.classList.add("recording");
       } else {
         stopEtchCapture();
@@ -1294,6 +1368,7 @@
   }
   
   function cleanupDragHandlers() {
+    handleDragEnd();
     document.removeEventListener("mousemove", handleDragMove);
     document.removeEventListener("mouseup", handleDragEnd);
   }
@@ -1629,7 +1704,7 @@
   // ─────────────────────────────────────────────────────────────────────
   
   function onMouseMove(e) {
-    if (!isActive || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) {
+    if (!isActive || !isPicking || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) {
       hideHighlight();
       hideTooltip();
       return;
@@ -1662,7 +1737,7 @@
   }
   
   function onWheel(e) {
-    if (!isActive || !elementStack.length || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) return;
+    if (!isActive || !isPicking || !elementStack.length || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) return;
     
     if (!e.altKey) return;
     
@@ -1678,7 +1753,7 @@
   }
   
   function onClick(e) {
-    if (!isActive || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) return;
+    if (!isActive || !isPicking || e.target.closest("#pi-panel") || e.target.closest(".pi-note-card")) return;
     
     e.preventDefault();
     e.stopPropagation();
@@ -1715,7 +1790,7 @@
   }
   
   function onKeyDown(e) {
-    if (!isActive) return;
+    if (!isActive || !isPicking) return;
     if (e.key === "Escape") {
       e.preventDefault();
       handleCancel();

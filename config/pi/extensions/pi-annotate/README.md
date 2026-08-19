@@ -94,8 +94,9 @@ Open Chrome or Chromium on the Browser Host, click the Pi Annotate extension ico
 | Toggle note | Click numbered badge |
 | Expand/collapse all | ▼/▲ buttons in toolbar |
 | Toggle edit capture | "Etch" toggle in toolbar |
-| Toggle annotation UI | `⌘/Ctrl+Shift+P` |
-| Close | `ESC` |
+| Release/recapture page interaction | "Pick" / "Pass-through" control |
+| Activate or toggle Pick/Pass-through | `⌘/Ctrl+Shift+P` |
+| Close while in Pick | `ESC` |
 
 ## Features
 
@@ -105,7 +106,7 @@ Open Chrome or Chromium on the Browser Host, click the Pi Annotate extension ico
 
 **Screenshots** — Individual crops per element (20px padding) or full-page mode with numbered badges drawn on the screenshot to identify elements. Toggle per element with the 📷 button.
 
-**Edit Capture** — Toggle "Etch" in the toolbar to record DevTools edits. Change inline styles, modify CSS rules, add/remove classes, edit text — everything is tracked via MutationObserver. A pulsing red dot and badge counter show recording status. At submit, the extension takes before/after screenshots by briefly undoing visual changes, and produces structured property-level diffs the agent can map to source code. Works alongside element selection or standalone.
+**Edit Capture** — Toggle "Etch" in the toolbar to record DevTools edits. Enabling it starts recording and enters **Pass-through**, which keeps the annotation session and panel open while releasing page interaction for another visual editor. Choose **Pick** to resume element selection; recording continues until Etch is disabled or the session ends. At submit, the extension takes before/after screenshots by briefly undoing visual changes and produces structured property-level diffs the agent can map to source code.
 
 **Restricted Tabs** — If the current tab is `chrome://` or other restricted URLs, providing a URL opens a new tab automatically. Popup button and keyboard shortcut auto-inject the content script on fresh tabs.
 
