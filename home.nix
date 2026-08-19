@@ -1023,11 +1023,36 @@ in
       ''
   );
 
+  # Materialize Pi Annotate during Home Manager activation instead of waiting
+  # for a later interactive Pi startup to auto-install it. This also puts the
+  # bundled Chrome extension/native host at the same stable user path on macOS.
+  home.activation.installPiAnnotate = lib.mkIf (!isWorkMachine) (
+    lib.hm.dag.entryAfter
+      [
+        "writeBoundary"
+        "mergePiConfig"
+      ]
+      ''
+        export PNPM_HOME="$HOME/.local/share/pnpm"
+        package="$HOME/.pi/agent/npm/node_modules/pi-annotate/package.json"
+        installed=""
+        if [ -f "$package" ]; then
+          installed="$(${pkgs.jq}/bin/jq -r '.version // empty' "$package" 2>/dev/null || true)"
+        fi
+
+        if [ "$installed" != "0.5.0" ]; then
+          PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
+            run "$PNPM_HOME/pi" install npm:pi-annotate@0.5.0
+        fi
+      ''
+  );
+
   # Bot-only pi config dir for piscord (the Discord gateway). Mirrors the
   # interactive ~/.pi/agent/settings.json but drops pi-codebase-memory-mcp,
   # whose long-lived codebase-memory-mcp server child keeps pi alive and made
-  # headless (--print) runs hang. Every other extension stays. pi auto-installs
-  # the trimmed package set into ~/.pi/discord-agent/npm on first run, and
+  # headless (--print) runs hang, plus pi-annotate, whose browser UI is irrelevant
+  # to Discord sessions. pi auto-installs the trimmed package set into
+  # ~/.pi/discord-agent/npm on first run, and
   # auth.json is symlinked so the bot reuses the interactive login. The piscord
   # systemd unit points pi here via PI_CODING_AGENT_DIR (drop-in above).
   home.activation.genPiDiscordConfig = lib.mkIf (pkgs.stdenv.isLinux && !isWorkMachine) (
@@ -1039,8 +1064,9 @@ in
       ''
         botdir="$HOME/.pi/discord-agent"
         run mkdir -p "$botdir"
-        run ${pkgs.jq}/bin/jq '.packages |= map(select(. != "npm:pi-codebase-memory-mcp"))' \
-          "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
+        run ${pkgs.jq}/bin/jq '.packages |= map(select(
+          . != "npm:pi-codebase-memory-mcp" and . != "npm:pi-annotate@0.5.0"
+        ))' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
       ''
   );
