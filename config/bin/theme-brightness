@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Adjust display brightness when macOS appearance changes.
+# Called by sync-theme-to-remotes.sh, which dark-notify invokes on every flip.
+# dark-notify also fires at startup with no actual change, hence the mode guard.
+set -euo pipefail
+
+BD="$HOME/.local/bin/betterdisplaycli"
+STATE="$HOME/.local/state/theme-brightness-mode"
+
+case "${1:-}" in
+  dark)  mode=dark;  factor=2   ;;
+  light) mode=light; factor=0.5 ;;
+  *) exit 0 ;;
+esac
+
+# First run (or state deleted): take the current brightness as this mode's
+# baseline rather than applying a flip that never happened.
+if [[ ! -f "$STATE" ]]; then
+  mkdir -p "$(dirname "$STATE")"
+  printf '%s\n' "$mode" > "$STATE"
+  echo "theme-brightness: first run, recorded $mode without adjusting"
+  exit 0
+fi
+
+if [[ "$(cat "$STATE")" == "$mode" ]]; then
+  echo "theme-brightness: already $mode, skipping"
+  exit 0
+fi
+
+cur="$("$BD" get --mainDisplay --brightness)"
+new="$(awk -v c="$cur" -v f="$factor" 'BEGIN { v = c * f; if (v > 1) v = 1; printf "%.3f", v }')"
+"$BD" set --mainDisplay --brightness="$new"
+
+mkdir -p "$(dirname "$STATE")"
+printf '%s\n' "$mode" > "$STATE"
+echo "theme-brightness: $mode $cur -> $new"

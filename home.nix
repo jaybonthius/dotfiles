@@ -754,6 +754,14 @@ in
     force = true;
   };
 
+  # Halves/doubles display brightness on macOS light/dark flips.
+  # Invoked by ~/bin/sync-theme-to-remotes.sh (driven by dark-notify).
+  home.file."bin/theme-brightness" = lib.mkIf pkgs.stdenv.isDarwin {
+    source = ./config/bin/theme-brightness;
+    executable = true;
+    force = true;
+  };
+
   home.file."bin/git-sync-main-master" = {
     source = ./config/bin/git-sync-main-master;
     executable = true;
