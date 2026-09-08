@@ -10,7 +10,11 @@
     "npm:pi-verbosity-control",
     "npm:@benvargas/pi-claude-code-use@1.0.4",
     "npm:pi-codebase-memory-mcp",
-    "npm:pi-agent-browser-native",
+    {
+      "source": "npm:pi-agent-browser-native",
+      "extensions": []
+    },
+    "../browser-runtime",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-mcp-adapter",
     "npm:@plannotator/pi-extension",

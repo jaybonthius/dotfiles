@@ -1,0 +1,4 @@
+#!/bin/sh
+# Standalone calls follow the active Pi home's extension. Pi itself prepends
+# a version-specific CLI directory so running sessions keep their matched pair.
+exec node "$HOME/.pi/browser-runtime/cli.mjs" "$@"

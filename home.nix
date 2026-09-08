@@ -305,7 +305,7 @@ in
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
-    "$HOME/.local/share/pnpm" # nix-managed pnpm globals (pi, agent-browser, ...)
+    "$HOME/.local/share/pnpm" # nix-managed pnpm globals (pi, piscord, ...)
     "$HOME/.npm-global/bin" # legacy npm-global CLIs (pi-installed package bins)
   ]
   # Hand-installed Racket lives on personal hosts only. Unlike fish_add_path,
@@ -513,6 +513,13 @@ in
     force = true;
   };
 
+  # Pi updates the upstream package; this shared loader selects its exact CLI
+  # independently for interactive and Discord Pi processes.
+  home.file.".pi/browser-runtime" = lib.mkIf (!isWorkMachine) {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/browser-runtime";
+    force = true;
+  };
+
   home.file.".pi/agent/extensions" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/extensions";
     force = true;
@@ -709,6 +716,12 @@ in
     force = true;
   };
 
+  home.file."bin/agent-browser" = lib.mkIf (!isWorkMachine) {
+    source = ./config/bin/agent-browser;
+    executable = true;
+    force = true;
+  };
+
   # Chromium --no-sandbox wrapper for agent browser automation.
   # Personal-only: the Chromium it wraps is gated the same way.
   home.file."bin/chromium-nosandbox" = lib.mkIf (pkgs.stdenv.isLinux && !isWorkMachine) {
@@ -873,8 +886,7 @@ in
   '';
 
   # Install pnpm global packages (deep merge, OpenSpec, pi-coding-agent, skills,
-  # the upstream agent-browser CLI that pi-agent-browser-native drives, and
-  # piscord -- a Discord gateway daemon that shells out to `pi`).
+  # and piscord -- a Discord gateway daemon that shells out to `pi`).
   # PATH must include nodejs/bin so postinstall scripts can find `node`,
   # and PNPM_HOME must be on PATH for pnpm to accept global installs.
   # Do not let pnpm's optional self-managed Node/npm live under $PNPM_HOME:
@@ -883,9 +895,9 @@ in
   # deps (e.g. piscord -> better-sqlite3) or pi package installs run under or
   # search for an older Node than the Nix Node that built them after upgrades.
   #
-  # agent-browser is pinned: pi-agent-browser-native enforces an EXACT upstream
-  # version via `pi-agent-browser-doctor`. When that doctor reports drift, bump
-  # the pin here to the version it expects, then re-run `home-manager switch`.
+  # Do not install/pin agent-browser here. ~/.pi/browser-runtime reads the
+  # loaded extension's exact target and caches that CLI per version. ~/bin's
+  # standalone launcher uses the same cache, without downgrades on activation.
   #
   # --allow-build whitelists native postinstall builds (pnpm v10 blocks them by
   # default). piscord needs better-sqlite3 to fetch/compile its native binding.
@@ -905,8 +917,17 @@ in
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
       run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 \
         deepmerge @fission-ai/openspec@latest skills ${
-          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent agent-browser@0.33.2 piscord"
+          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent piscord"
         }
+    ${lib.optionalString (!isWorkMachine) ''
+      # Retire the CLI dependency installed by older dotfiles so pnpm cannot
+      # recreate a stale competing binary during later global package updates.
+      manifest="$PNPM_HOME/global/5/package.json"
+      if [ -f "$manifest" ] && ${pkgs.jq}/bin/jq -e '(.dependencies // {}) | has("agent-browser")' "$manifest" >/dev/null; then
+        PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
+          run ${pkgs.pnpm}/bin/pnpm remove -g agent-browser
+      fi
+    ''}
   '';
 
   # Install Caveman for Claude Code everywhere and additionally for Pi on
