@@ -192,6 +192,8 @@ in
       nodejs
       pnpm
       python3
+      clojure
+      clojure-lsp
       nixd
       nixfmt
 

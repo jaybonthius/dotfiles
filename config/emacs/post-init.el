@@ -1867,6 +1867,52 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
 ;;; Languages
 ;;; ============================================================================
 
+;;; Clojure: tree-sitter syntax/indentation, Eglot + clojure-lsp for static
+;;; language intelligence and Flymake diagnostics, and CIDER for REPL work.
+;;; Structural editing remains owned by Symex.
+
+(defun jb-clojure-setup ()
+  "Enable static tooling and Eglot formatting for Clojure buffers."
+  (eglot-ensure)
+  (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
+
+(use-package clojure-mode
+  :ensure t
+  :defer t)
+
+(use-package clojure-ts-mode
+  :ensure t
+  :defer t
+  :mode (("\\.clj\\'" . clojure-ts-mode)
+         ("\\.cljs\\'" . clojure-ts-clojurescript-mode)
+         ("\\.cljc\\'" . clojure-ts-clojurec-mode)
+         ("\\.edn\\'" . clojure-ts-mode))
+  :hook ((clojure-ts-mode . jb-clojure-setup))
+  :config
+  ;; Symex currently lists only the classic Clojure modes.  Register the
+  ;; tree-sitter modes with both its structural and CIDER runtime interfaces.
+  (let ((modes '(clojure-ts-mode
+                 clojure-ts-clojurescript-mode
+                 clojure-ts-clojurec-mode)))
+    (with-eval-after-load 'symex-primitives-lisp
+      (dolist (mode modes)
+        (add-to-list 'symex-lisp-modes mode)
+        (add-hook (intern (format "%s-hook" mode)) #'symex-lisp-mode)))
+    (with-eval-after-load 'symex-interface-clojure
+      (dolist (mode modes)
+        (add-to-list 'symex-clojure-modes mode))
+      (symex-interface-register-clojure))))
+
+(use-package cider
+  :ensure t
+  :after clojure-mode
+  :commands (cider-connect-clj cider-jack-in-clj cider-jack-in-cljs)
+  :hook ((clojure-ts-mode . cider-mode))
+  :custom
+  ;; Keep clojure-lsp as the primary xref backend; CIDER remains a fallback
+  ;; when its live REPL can answer something static analysis cannot.
+  (cider-xref-fn-depth 90))
+
 ;;; Chez Scheme: Geiser REPL, evaluation, documentation, and navigation.
 ;;; Structural editing is provided by Symex above.
 
@@ -2543,7 +2589,10 @@ racket-hash-lang-mode's token-based fontification."
           emacs-lisp-mode
           scheme-mode
           geiser-mode
-          gerbil-mode) . rainbow-delimiters-mode)
+          gerbil-mode
+          clojure-ts-mode
+          clojure-ts-clojurescript-mode
+          clojure-ts-clojurec-mode) . rainbow-delimiters-mode)
   :config
   (jb-modus-dim-inner-parens))
 
