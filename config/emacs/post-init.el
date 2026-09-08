@@ -2320,6 +2320,12 @@ Produces a line like: # Input ----------------------------------------------"
     (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
   (add-hook 'swift-mode-hook #'jb-swift-before-save-hooks))
 
+;;; D2 diagrams
+
+(use-package d2-mode
+  :ensure (:host github :repo "andorsk/d2-mode")
+  :mode "\\.d2\\'")
+
 ;;; Markdown
 
 ;; markdown-mode: syntax highlighting, editing commands, and preview for

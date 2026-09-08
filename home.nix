@@ -216,6 +216,7 @@ in
       flock
       ruff
       basedpyright
+      d2
       drawio
 
       # Fonts
@@ -527,6 +528,11 @@ in
 
   home.file.".agents/skills/racket-docs" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/racket-docs";
+    force = true;
+  };
+
+  home.file.".agents/skills/d2-diagrams" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/d2-diagrams";
     force = true;
   };
 

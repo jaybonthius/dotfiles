@@ -1,0 +1,19 @@
+# Fictional request validation flow.
+vars: {
+  d2-config: {
+    layout-engine: dagre
+    theme-id: 0
+  }
+}
+direction: down
+
+request: Receive request
+valid: Valid input? {shape: diamond}
+reject: Return validation error
+save: Save record
+complete: Return success
+
+request -> valid
+valid -> reject: no
+valid -> save: yes
+save -> complete

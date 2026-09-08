@@ -1,0 +1,22 @@
+# Fictional schema: arrows indicate foreign keys, not cardinality.
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 0
+  }
+}
+direction: right
+
+customers: {
+  shape: sql_table
+  id: uuid {constraint: primary_key}
+  email: text {constraint: unique}
+}
+orders: {
+  shape: sql_table
+  id: uuid {constraint: primary_key}
+  customer_id: uuid {constraint: foreign_key}
+  created_at: timestamp
+}
+
+orders.customer_id -> customers.id: references

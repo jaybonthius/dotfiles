@@ -1,0 +1,23 @@
+# Fictional read request; dashed arrows are labeled responses.
+vars: {
+  d2-config: {
+    layout-engine: dagre
+    theme-id: 0
+  }
+}
+shape: sequence_diagram
+
+client: Client
+api: API
+database: Database
+
+client -> api: GET /items
+lookup: Read items {
+  api -> database: SELECT items
+  database -> api: rows {
+    style.stroke-dash: 3
+  }
+}
+api -> client: 200 JSON {
+  style.stroke-dash: 3
+}
