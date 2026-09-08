@@ -497,6 +497,17 @@ in
 
   # ── Pi Coding Agent (personal machines only) ─────────────────────────
   # Existing Pi state on pairing hosts is intentionally left unmanaged.
+  xdg.configFile."mcp/mcp.json" =
+    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
+      {
+        text = builtins.toJSON {
+          mcpServers.gerbil = {
+            command = "gerbil-mcp";
+            env.GERBIL_MCP_MODE = "full";
+          };
+        };
+      };
+
   home.file.".pi/agent/settings.base.json" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
     force = true;
