@@ -1639,6 +1639,17 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   ;; Default to unified one-column output (avoids narrow side-by-side issues).
   (add-to-list 'difftastic-difft-environment "DFT_DISPLAY=inline"))
 
+;; Render structural diffs as native Magit sections, retaining file, chunk,
+;; and selected-line staging.  Keep the existing one-column preference.
+(use-package magit-difftastic
+  :ensure (:host github :repo "rschmukler/magit-difftastic")
+  :if (executable-find "difft")
+  :after magit
+  :custom
+  (magit-difftastic-display "inline")
+  :config
+  (magit-difftastic-mode +1))
+
 (use-package difftastic-bindings
   :ensure nil
   :after difftastic
