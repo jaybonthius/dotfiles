@@ -1,0 +1,467 @@
+--- a/src/worktree/branch-fallback.ts
++++ b/src/worktree/branch-fallback.ts
+@@ -1,20 +1,7 @@
+-import { existsSync, readFileSync } from "node:fs";
+-import { basename, join } from "node:path";
+-import { homedir } from "node:os";
++import { existsSync } from "node:fs";
++import { basename, dirname, join } from "node:path";
+
+-import {
+-  expandHome,
+-  normalizePath,
+-  worktreeSlug,
+-} from "../discovery/discovery.ts";
+-
+-import { parse } from "smol-toml";
+-
+-interface RawHerdrConfig {
+-  worktrees?: {
+-    directory?: string;
+-  };
+-}
++import { normalizePath } from "../discovery/discovery.ts";
+
+ interface GitCommandResult {
+   stdout: string;
+@@ -58,7 +45,7 @@
+   runtime: WorktreeBranchFallbackRuntime = defaultRuntime
+ ): Promise<string> {
+   const repoRoot = await resolveRepoRoot(project, runtime);
+-  const path = resolveHerdrWorktreePath(repoRoot, branch);
++  const path = siblingCheckoutPath(repoRoot, branch);
+
+   const result = await runtime.runGit(repoRoot, [
+     "worktree",
+@@ -92,24 +79,19 @@
+   );
+ }
+
+-function resolveHerdrWorktreePath(repoRoot: string, branch: string): string {
++function siblingCheckoutPath(repoRoot: string, branch: string): string {
+   return join(
+-    resolveHerdrWorktreesDirectory(),
+-    basename(repoRoot),
+-    worktreeSlug(branch)
++    dirname(repoRoot),
++    `${basename(repoRoot)}__${branch.replaceAll("/", "-")}`
+   );
+ }
+
+-function resolveHerdrWorktreesDirectory(): string {
+-  const configPath =
+-    process.env.HERDR_CONFIG_PATH ??
+-    join(homedir(), ".config", "herdr", "config.toml");
+-  if (!existsSync(configPath)) {
+-    return join(homedir(), ".herdr", "worktrees");
+-  }
+-
+-  const raw = parse(readFileSync(configPath, "utf-8")) as RawHerdrConfig;
+-  return expandHome(raw.worktrees?.directory?.trim() || "~/.herdr/worktrees");
++export async function resolveSiblingWorktreePath(
++  project: string,
++  branch: string,
++  runtime: WorktreeBranchFallbackRuntime = defaultRuntime
++): Promise<string> {
++  return siblingCheckoutPath(await resolveRepoRoot(project, runtime), branch);
+ }
+
+ async function resolveRepoRoot(
+@@ -117,8 +99,10 @@
+   runtime: WorktreeBranchFallbackRuntime
+ ): Promise<string> {
+   const result = await runtime.runGit(project, [
+-    "rev-parse",
+-    "--show-toplevel",
++    "worktree",
++    "list",
++    "--porcelain",
++    "-z",
+   ]);
+   if (result.exitCode !== 0) {
+     throw new Error(
+@@ -126,7 +110,13 @@
+     );
+   }
+
+-  return result.stdout.trim();
++  // Git lists the main checkout first, even when invoked from a linked worktree.
++  // NUL-delimited output preserves spaces, quotes and newlines in repository paths.
++  const firstField = result.stdout.split("\0", 1)[0];
++  if (!firstField?.startsWith("worktree ")) {
++    throw new Error(`failed to resolve main git root for '${project}'`);
++  }
++  return firstField.slice("worktree ".length);
+ }
+
+ async function inspectExistingPath(
+@@ -145,7 +135,7 @@
+
+   return {
+     valid: true,
+-    repoRoot: repo.stdout.trim(),
++    repoRoot: await resolveRepoRoot(path, runtime),
+     branch: branch.stdout.trim(),
+   };
+ }
+--- a/src/worktree/branch-fallback.test.ts
++++ b/src/worktree/branch-fallback.test.ts
+@@ -1,149 +1,146 @@
+-import { homedir } from "node:os";
++import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
+ import { join } from "node:path";
+
+-import { describe, expect, it, mock } from "bun:test";
++import { afterEach, describe, expect, it } from "bun:test";
+
+ import {
+   attachExistingBranchWorktree,
+   localBranchExists,
++  resolveSiblingWorktreePath,
+ } from "./branch-fallback.ts";
+
+-const worktreePath = join(
+-  homedir(),
+-  ".herdr",
+-  "worktrees",
+-  "repo",
+-  "feature-test-flow"
+-);
++const temporaryDirectories: string[] = [];
++
++afterEach(() => {
++  for (const directory of temporaryDirectories.splice(0)) {
++    rmSync(directory, { recursive: true, force: true });
++  }
++});
++
++function git(cwd: string, ...args: string[]): string {
++  const result = Bun.spawnSync(["git", "-C", cwd, ...args]);
++  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
++  return result.stdout.toString();
++}
++
++function fixture() {
++  const parent = mkdtempSync(join(tmpdir(), "sessionizer-sibling-"));
++  temporaryDirectories.push(parent);
++  // Exercise spaces and quoting rather than relying on porcelain line parsing.
++  const repo = join(parent, 'My "Repo"');
++  mkdirSync(repo);
++  git(repo, "init", "-b", "main");
++  git(
++    repo,
++    "-c",
++    "user.name=Test",
++    "-c",
++    "user.email=test@example.invalid",
++    "-c",
++    "commit.gpgsign=false",
++    "commit",
++    "--allow-empty",
++    "-m",
++    "initial"
++  );
++  return { parent, repo };
++}
++
++describe("resolveSiblingWorktreePath", () => {
++  it("uses a sibling directory and preserves branch spelling except slashes", async () => {
++    const { parent, repo } = fixture();
++    expect(await resolveSiblingWorktreePath(repo, "Feature/UI_fix.v2")).toBe(
++      join(parent, 'My "Repo"__Feature-UI_fix.v2')
++    );
++  });
++
++  it("resolves the main repo when invoked from a linked worktree subdirectory", async () => {
++    const { parent, repo } = fixture();
++    const linked = join(parent, "old-location");
++    git(repo, "worktree", "add", "-b", "first", linked);
++    const nested = join(linked, "nested");
++    mkdirSync(nested);
++    expect(await resolveSiblingWorktreePath(nested, "second")).toBe(
++      join(parent, 'My "Repo"__second')
++    );
++  });
++
++  it("supports a bare repository", async () => {
++    const { parent, repo } = fixture();
++    const bare = join(parent, "bare.git");
++    git(repo, "clone", "--bare", repo, bare);
++    expect(await resolveSiblingWorktreePath(bare, "feature/test")).toBe(
++      join(parent, "bare.git__feature-test")
++    );
++  });
++
++  it("rejects a directory outside a repository", async () => {
++    const { parent } = fixture();
++    await expect(
++      resolveSiblingWorktreePath(parent, "feature")
++    ).rejects.toThrow();
++  });
++});
+
+ describe("attachExistingBranchWorktree", () => {
+-  it("returns the target path when git worktree add succeeds", async () => {
+-    const runGit = mock(async (_cwd: string, args: string[]) => {
+-      if (args[0] === "rev-parse") {
+-        return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+-      }
+-
+-      return { stdout: "", stderr: "", exitCode: 0 };
+-    });
+-
+-    const path = await attachExistingBranchWorktree(
+-      "/repo",
+-      "feature/test-flow",
+-      {
+-        runGit,
+-        pathExists: () => false,
+-      }
++  it("attaches an existing branch at the same sibling path used for new branches", async () => {
++    const { repo } = fixture();
++    git(repo, "branch", "feature/test-flow");
++    const expected = await resolveSiblingWorktreePath(
++      repo,
++      "feature/test-flow"
+     );
+-
+-    expect(path).toBe(worktreePath);
++    const path = await attachExistingBranchWorktree(repo, "feature/test-flow");
++    expect(path).toBe(expected);
++    expect(git(path, "branch", "--show-current").trim()).toBe(
++      "feature/test-flow"
++    );
+   });
+
+-  it("reuses an existing target path when it is already the requested worktree checkout", async () => {
+-    const runGit = mock(async (cwd: string, args: string[]) => {
+-      if (cwd === "/repo" && args[0] === "rev-parse") {
+-        return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+-      }
+-      if (cwd === "/repo" && args[0] === "worktree") {
+-        return {
+-          stdout: "",
+-          stderr: `Preparing worktree (checking out 'feature/test-flow')\nfatal: '${worktreePath}' already exists`,
+-          exitCode: 128,
+-        };
+-      }
+-      if (
+-        cwd === worktreePath &&
+-        args.join(" ") === "rev-parse --show-toplevel"
+-      ) {
+-        return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+-      }
+-      if (cwd === worktreePath && args.join(" ") === "branch --show-current") {
+-        return { stdout: "feature/test-flow\n", stderr: "", exitCode: 0 };
+-      }
+-
+-      throw new Error(`unexpected git call: ${cwd} ${args.join(" ")}`);
+-    });
+-
+-    const path = await attachExistingBranchWorktree(
+-      "/repo",
+-      "feature/test-flow",
+-      {
+-        runGit,
+-        pathExists: () => true,
+-      }
++  it("reuses the requested existing worktree without modifying its files", async () => {
++    const { repo } = fixture();
++    git(repo, "branch", "feature/test-flow");
++    const path = await attachExistingBranchWorktree(repo, "feature/test-flow");
++    writeFileSync(join(path, "keep.txt"), "keep");
++    expect(await attachExistingBranchWorktree(repo, "feature/test-flow")).toBe(
++      path
+     );
+-
+-    expect(path).toBe(worktreePath);
++    expect(await Bun.file(join(path, "keep.txt")).text()).toBe("keep");
+   });
+
+-  it("throws a clear stale-path error when the target path exists but is not a git worktree", async () => {
+-    const runGit = mock(async (cwd: string, args: string[]) => {
+-      if (cwd === "/repo" && args[0] === "rev-parse") {
+-        return { stdout: "/repo\n", stderr: "", exitCode: 0 };
+-      }
+-      if (cwd === "/repo" && args[0] === "worktree") {
+-        return {
+-          stdout: "",
+-          stderr: `Preparing worktree (checking out 'feature/test-flow')\nfatal: '${worktreePath}' already exists`,
+-          exitCode: 128,
+-        };
+-      }
+-      if (
+-        cwd === worktreePath &&
+-        args.join(" ") === "rev-parse --show-toplevel"
+-      ) {
+-        return {
+-          stdout: "",
+-          stderr: "fatal: not a git repository",
+-          exitCode: 128,
+-        };
+-      }
++  it("rejects a colliding branch name rather than reusing the wrong checkout", async () => {
++    const { repo } = fixture();
++    git(repo, "branch", "feature/test");
++    git(repo, "branch", "feature-test");
++    const path = await attachExistingBranchWorktree(repo, "feature/test");
++    await expect(
++      attachExistingBranchWorktree(repo, "feature-test")
++    ).rejects.toThrow("not a reusable checkout");
++    expect(git(path, "branch", "--show-current").trim()).toBe("feature/test");
++  });
+
+-      throw new Error(`unexpected git call: ${cwd} ${args.join(" ")}`);
+-    });
+-
++  it("rejects an unrelated directory at the target path without deleting it", async () => {
++    const { repo } = fixture();
++    git(repo, "branch", "feature/test-flow");
++    const path = await resolveSiblingWorktreePath(repo, "feature/test-flow");
++    mkdirSync(path);
++    writeFileSync(join(path, "keep.txt"), "keep");
+     await expect(
+-      attachExistingBranchWorktree("/repo", "feature/test-flow", {
+-        runGit,
+-        pathExists: () => true,
+-      })
+-    ).rejects.toThrow(
+-      `target worktree path '${worktreePath}' already exists but is not a reusable checkout for branch 'feature/test-flow'; remove or relocate that directory and retry`
+-    );
++      attachExistingBranchWorktree(repo, "feature/test-flow")
++    ).rejects.toThrow("not a reusable checkout");
++    expect(await Bun.file(join(path, "keep.txt")).text()).toBe("keep");
+   });
+ });
+
+ describe("localBranchExists", () => {
+-  it("returns true when git verifies the branch ref", async () => {
+-    const runGit = mock(async (_cwd: string, args: string[]) => {
+-      expect(args).toEqual([
+-        "rev-parse",
+-        "--verify",
+-        "--quiet",
+-        "refs/heads/feature/test-flow",
+-      ]);
+-      return { stdout: "abc123\n", stderr: "", exitCode: 0 };
+-    });
+-
+-    await expect(
+-      localBranchExists("/repo", "feature/test-flow", {
+-        runGit,
+-        pathExists: () => true,
+-      })
+-    ).resolves.toBe(true);
++  it("returns true for an existing branch", async () => {
++    const { repo } = fixture();
++    expect(await localBranchExists(repo, "main")).toBe(true);
+   });
+
+-  it("returns false when the branch ref is missing", async () => {
+-    const runGit = mock(async () => ({
+-      stdout: "",
+-      stderr: "",
+-      exitCode: 1,
+-    }));
+-
+-    await expect(
+-      localBranchExists("/repo", "missing", {
+-        runGit,
+-        pathExists: () => true,
+-      })
+-    ).resolves.toBe(false);
++  it("returns false for a missing branch", async () => {
++    const { repo } = fixture();
++    expect(await localBranchExists(repo, "missing")).toBe(false);
+   });
+ });
+--- a/src/worktree/flow.ts
++++ b/src/worktree/flow.ts
+@@ -72,6 +72,7 @@
+   discoverCandidates: (
+     options: DiscoverWorktreeCandidateOptions
+   ) => Promise<WorktreeCandidate[]>;
++  resolveCheckoutPath: (project: string, branch: string) => Promise<string>;
+   attachExistingBranch: (project: string, branch: string) => Promise<string>;
+   localBranchExists: (project: string, branch: string) => Promise<boolean>;
+   logger: Pick<typeof console, "log" | "error">;
+@@ -295,6 +296,7 @@
+   }
+
+   const label = sanitizeName(branch);
++  const path = await runtime.resolveCheckoutPath(project, branch);
+   let workspace: Workspace;
+   try {
+     workspace = await runtime.worktrees.create({
+@@ -303,6 +305,7 @@
+       branch,
+       base,
+       label,
++      path,
+       focus: false,
+     });
+   } catch (error) {
+--- a/src/worktree/worktree.ts
++++ b/src/worktree/worktree.ts
+@@ -11,6 +11,7 @@
+ import {
+   attachExistingBranchWorktree,
+   localBranchExists,
++  resolveSiblingWorktreePath,
+ } from "./branch-fallback.ts";
+ import {
+   defaultDiscoverWorktreeCandidates,
+@@ -71,6 +72,7 @@
+     pickWorktreeCandidate: pick,
+     promptBranch: promptBranchName,
+     discoverCandidates: defaultDiscoverWorktreeCandidates,
++    resolveCheckoutPath: resolveSiblingWorktreePath,
+     attachExistingBranch: attachExistingBranchWorktree,
+     localBranchExists,
+     logger: console,
+--- a/src/worktree/worktree.test.ts
++++ b/src/worktree/worktree.test.ts
+@@ -49,6 +49,10 @@
+     pickWorktreeCandidate: mock(async () => null),
+     promptBranch: mock(async () => "feature/test-flow"),
+     discoverCandidates: mock(async () => []),
++    resolveCheckoutPath: mock(
++      async (_project: string, branch: string) =>
++        `/repo__${branch.replaceAll("/", "-")}`
++    ),
+     attachExistingBranch: mock(async () => "/repo/feature-test-flow"),
+     localBranchExists: mock(async () => true),
+     logger: { log: mock(() => {}), error: mock(() => {}) },
+@@ -138,6 +142,7 @@
+       branch: "feature/test-flow",
+       base: undefined,
+       label: "feature_test-flow",
++      path: "/repo__feature-test-flow",
+       focus: false,
+     });
+     expect(resolveExisting).toHaveBeenCalledWith({
+@@ -441,6 +446,7 @@
+       branch: "feature/test-flow",
+       base: undefined,
+       label: "feature_test-flow",
++      path: "/repo__feature-test-flow",
+       focus: false,
+     });
+     expect(createLayout).toHaveBeenCalledWith(
+@@ -545,6 +551,7 @@
+       branch: "feature/remote",
+       base: "origin/feature/remote",
+       label: "feature_remote",
++      path: "/repo__feature-remote",
+       focus: false,
+     });
+   });
+@@ -582,6 +589,7 @@
+       branch: "feature/new",
+       base: undefined,
+       label: "feature_new",
++      path: "/repo__feature-new",
+       focus: false,
+     });
+   });

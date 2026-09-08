@@ -44,6 +44,11 @@ let
   };
 
   herdrPackage = herdr.packages.${pkgs.system}.default;
+  herdrSessionizerSource = pkgs.applyPatches {
+    name = "herdr-sessionizer-sibling-worktrees";
+    src = herdr-sessionizer;
+    patches = [ ./config/herdr/patches/sessionizer-sibling-worktrees.patch ];
+  };
   zigPackage = zig.packages.${pkgs.system}.default;
 
   herdrLastWorkspacePackage = pkgs.rustPlatform.buildRustPackage {
@@ -926,7 +931,7 @@ in
 
   home.activation.installHerdrSessionizer = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PATH="${pkgs.bun}/bin:${pkgs.git}/bin:${herdrPackage}/bin:$PATH"
-    source_dir=${herdr-sessionizer}
+    source_dir=${herdrSessionizerSource}
     target_dir="$HOME/.local/share/herdr/plugins-src/sessionizer"
     marker="$target_dir/.nix-source"
 
