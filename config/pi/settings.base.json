@@ -17,6 +17,58 @@
     "https://github.com/sting8k/pi-vcc",
     "git:github.com/justcyl/pi-herdr-tab-sync@b8c931ce2e205d9acb15a95814c83fd9770ef244"
   ],
+  "subagents": {
+    "agentOverrides": {
+      "worker": {
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "high",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "reviewer": {
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "high",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "planner": {
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "high",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "oracle": {
+        "model": "openai-codex/gpt-6-astra",
+        "thinking": "xhigh",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "scout": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "context-builder": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "researcher": {
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "medium",
+        "tools": "inherit",
+        "inheritSkills": true
+      },
+      "delegate": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "thinking": "low",
+        "tools": "inherit",
+        "inheritSkills": true
+      }
+    }
+  },
   "powerline": {
     "welcome": false,
     "fixedEditor": false
