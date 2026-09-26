@@ -450,6 +450,12 @@ in
     force = true;
   };
 
+  # ── AeroSpace (macOS only) ──────────────────────────────────────────
+  # Do not overwrite an existing config (this Mac has one in a separate Git repo).
+  xdg.configFile."aerospace/aerospace.toml" = lib.mkIf pkgs.stdenv.isDarwin {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/aerospace/aerospace.toml";
+  };
+
   # ── Ghostty ─────────────────────────────────────────────────────────
   # Config + themes only (Ghostty itself is installed outside Nix).
   # Out-of-store symlink of the whole directory so edits to config or
