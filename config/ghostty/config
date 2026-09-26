@@ -67,3 +67,5 @@ keybind = alt+m=text:\x1b[109;6u
 
 macos-option-as-alt = true
 keybind = cmd+f=unbind
+
+background-opacity = 1.00

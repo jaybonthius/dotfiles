@@ -301,7 +301,7 @@ in
   };
 
   home.sessionPath = [
-    "$HOME/.cargo/bin"
+    "$HOME/.cargo/bin" # rustup-managed Rust toolchains
     "$HOME/bin"
     "$HOME/.local/bin"
     "$HOME/go/bin"
@@ -314,6 +314,7 @@ in
     "$HOME/racket/bin"
   ]
   ++ lib.optionals pkgs.stdenv.isDarwin [
+    "/opt/homebrew/bin" # Apple Silicon Homebrew formulae such as rustup/node@24
     "${jimeh-emacs}/Applications/Emacs.app/Contents/MacOS/bin"
   ];
 

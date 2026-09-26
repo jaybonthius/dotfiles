@@ -53,6 +53,12 @@ set fzf_preview_dir_cmd eza --all --color=always
 functions -q fzf_configure_bindings && fzf_configure_bindings --history=\cr --directory=\cf --git_log=\cg --git_status=\cs --processes=\cp
 set fzf_preview_file_cmd cat -n
 
+# Homebrew on Apple Silicon; needed before repo scripts try brew fallbacks.
+fish_add_path /opt/homebrew/bin
+
+# rustup-managed Rust toolchains.
+fish_add_path $HOME/.cargo/bin
+
 # Go environment (GOPATH/GOBIN set via home.sessionVariables in home.nix)
 fish_add_path $GOBIN
 
