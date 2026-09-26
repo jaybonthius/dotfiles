@@ -18,8 +18,7 @@
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-mcp-adapter",
     "npm:@plannotator/pi-extension",
-    "https://github.com/sting8k/pi-vcc",
-    "git:github.com/justcyl/pi-herdr-tab-sync@b8c931ce2e205d9acb15a95814c83fd9770ef244"
+    "https://github.com/sting8k/pi-vcc"
   ],
   "subagents": {
     "agentOverrides": {
