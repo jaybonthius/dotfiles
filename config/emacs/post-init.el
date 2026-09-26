@@ -128,17 +128,22 @@
 
 (global-set-key (kbd "C-c g o") #'jb-browse-file-remote)
 
-;; eat: Emulate A Terminal — fast terminal emulator inside Emacs.
-;; Launches Fish by default.  Meow is disabled in eat buffers so
-;; terminal keys pass through; press s-m to toggle meow back on.
-(use-package eat
-  :ensure t
-  :commands (eat eat-project)
+;; Ghostel: Fish terminals with automatic shell integration.
+;; Meow stays off so terminal keys pass through; s-m toggles it back on.
+(use-package ghostel
+  :ensure (:host github :repo "dakra/ghostel"
+           :ref "c2c411f2b0051465a5f5e7826ebab4ed216d4c0e")
+  :bind (("C-x m" . ghostel)
+         ("C-x p s" . ghostel-project)
+         ("C-x p S" . ghostel-project-list-buffers)
+         :map ghostel-semi-char-mode-map
+         ("C-s" . consult-line))
   :custom
-  (eat-shell (executable-find "fish"))
-  (eat-term-name "xterm-256color")
+  (ghostel-shell (executable-find "fish"))
+  ;; Keep the loaded native module outside Elpaca's rebuildable package tree.
+  (ghostel-module-directory (expand-file-name "ghostel/" user-emacs-directory))
   :config
-  (add-hook 'eat-mode-hook (lambda () (meow-mode -1))))
+  (add-hook 'ghostel-mode-hook (lambda () (meow-mode -1))))
 
 ;; Terminal mouse support.
 (unless (display-graphic-p)
@@ -158,16 +163,16 @@
             (format-time-string "%s"))))
 
 (defun jb-home-manager-switch ()
-  "Run `home-manager switch' in an Eat terminal buffer.
+  "Run `home-manager switch' in a Ghostel terminal buffer.
 Saves the current easysession first in case the daemon is restarted.
 Preserves rich terminal rendering (color/progress/cursor control)."
   (interactive)
   (when (easysession-get-session-name)
     (easysession-save))
-  (let ((buf (eat (jb-home-manager-switch-command) t)))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf
-        (rename-buffer (format "*hm-switch:%s*" (format-time-string "%H:%M:%S")) t)))))
+  (require 'ghostel-compile)
+  (let ((ghostel-compile-buffer-name
+         (format "*hm-switch:%s*" (format-time-string "%H:%M:%S"))))
+    (ghostel-compile (jb-home-manager-switch-command) t)))
 
 (global-set-key (kbd "C-c g r") #'jb-home-manager-switch)
 
@@ -2071,7 +2076,8 @@ On Linux, restarts via systemd.  On macOS, restarts via launchctl."
           (project-find-dir "Find directory" ?d)
           (magit-project-status "Magit" ?m)
           (project-vc-dir "VC-Dir" ?v)
-          (project-shell "Shell" ?s)
+          (ghostel-project "Shell" ?s)
+          (ghostel-project-list-buffers "Shell buffers" ?S)
           (project-eshell "Eshell" ?e)))
 
   (defcustom jb-open-context-project-action 'magit
