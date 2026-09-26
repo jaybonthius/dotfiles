@@ -5,6 +5,7 @@
 #   ~/dotfiles/install.sh              # Run all steps
 #   ~/dotfiles/install.sh install-nix  # Run a single step
 #   ~/dotfiles/install.sh switch       # Apply home-manager config
+#   ~/dotfiles/install.sh opener-ssh-forward # Repair stale remote opener sockets
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -89,6 +90,38 @@ switch() {
     ok "home-manager switch complete"
 }
 
+opener_ssh_forward() {
+    # Home Manager cannot configure the system SSH server; install its
+    # root-owned drop-in explicitly rather than running sudo on every switch.
+    [ "$(uname -s)" = "Linux" ] || fail "opener-ssh-forward requires a Linux SSH server"
+    local source="$DOTFILES_DIR/config/ssh/sshd_config.d/60-opener-forward.conf"
+    local target="/etc/ssh/sshd_config.d/60-opener-forward.conf"
+    local installed=false
+    local settings
+
+    grep -Fqx 'Include /etc/ssh/sshd_config.d/*.conf' /etc/ssh/sshd_config ||
+        fail "sshd does not include /etc/ssh/sshd_config.d/*.conf"
+    if sudo test -e "$target" || sudo test -L "$target"; then
+        sudo test -f "$target" && ! sudo test -L "$target" && sudo cmp -s "$source" "$target" ||
+            fail "Refusing to overwrite existing $target"
+    else
+        sudo install -D -o root -g root -m 0644 "$source" "$target"
+        installed=true
+    fi
+
+    if ! sudo /usr/sbin/sshd -t ||
+       ! settings="$(sudo /usr/sbin/sshd -T)" ||
+       ! grep -Fxq 'streamlocalbindunlink yes' <<< "$settings"; then
+        if "$installed"; then sudo rm -- "$target"; fi
+        fail "sshd rejected the opener setting (new drop-in removed if installed)"
+    fi
+    if ! sudo systemctl reload ssh; then
+        if "$installed"; then sudo rm -- "$target"; fi
+        fail "Could not reload sshd (new drop-in removed if installed)"
+    fi
+    ok "sshd will replace stale remote opener sockets on new SSH connections"
+}
+
 compile_terminfo() {
     info "Compiling custom terminfo entries..."
     local ti_file="$DOTFILES_DIR/config/terminfo/xterm-ghostty.ti"
@@ -170,6 +203,7 @@ else
             install-nix)     install_nix ;;
             enable-flakes)   enable_flakes ;;
             switch)          switch ;;
+            opener-ssh-forward) opener_ssh_forward ;;
             compile-terminfo) compile_terminfo ;;
             default-shell)   default_shell ;;
             fish-plugins)    fish_plugins ;;
