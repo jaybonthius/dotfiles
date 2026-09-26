@@ -144,6 +144,10 @@
 (unless (display-graphic-p)
   (xterm-mouse-mode 1))
 
+;; Open descriptive Org links with an ordinary left click.
+(with-eval-after-load 'org
+  (define-key org-mouse-map [mouse-1] #'org-open-at-mouse))
+
 ;; Nix Home Manager: apply dotfiles changes from within Emacs.
 (defun jb-home-manager-switch-command ()
   "Return the platform-appropriate Home Manager switch command."
@@ -623,20 +627,25 @@ Ensures required directories and files exist, sets up file-notify."
   :config
   (auto-olivetti-mode))
 
-(dolist (hook '(org-mode-hook markdown-mode-hook))
+(dolist (hook '(org-mode-hook markdown-mode-hook gfm-mode-hook markdown-modern-mode-hook))
   (add-hook hook (lambda () (setq-local olivetti-body-width 80))))
 
-;;; Org prettification: terminal-friendly styling.
+;;; Org prettification: Org Modern in GUI-only sessions, Superstar in TTYs.
 
-;; org-superstar: prettify heading bullets and list markers.
-;; Unlike org-modern, org-superstar is designed with terminal fallback
-;; support and doesn't rely on GUI text properties or fringes.
 (use-package org-superstar
   :ensure t
-  :hook (org-mode . org-superstar-mode)
+  :commands org-superstar-mode
   :custom
   (org-superstar-headline-bullets-list '("◉" "○" "●" "○" "●"))
   (org-superstar-prettify-item-bullets t))
+
+(use-package org-modern
+  :ensure t
+  :commands (org-modern-mode org-modern-agenda))
+
+(load (expand-file-name "~/dotfiles/config/emacs/gui-presentation.el")
+      nil 'nomessage)
+(add-hook 'elpaca-after-init-hook #'jb-gui-presentation-start)
 
 ;; Built-in Org appearance settings.
 (setq org-hide-leading-stars t
@@ -670,9 +679,9 @@ Ensures required directories and files exist, sets up file-notify."
   "Non-nil when another export is needed after the current one.")
 
 (defun jb-org-discover-agenda-files ()
-  "Return top-level agenda files plus every schedule.org below ~/Code."
+  "Return personal agenda files plus every schedule.org below ~/Code."
   (let ((top-level-files
-         (mapcar #'expand-file-name '("~/org/inbox.org")))
+         (mapcar #'expand-file-name '("~/org/inbox.org" "~/org/leetcode.org")))
         (code-directory (expand-file-name "~/Code/")))
     (delete-dups
      (append (seq-filter #'file-exists-p top-level-files)
@@ -903,9 +912,8 @@ Ensures required directories and files exist, sets up file-notify."
 
 (setq treesit-font-lock-level 4)
 
-;;; Use ordinary line-based mouse wheel scrolling.
-
-(pixel-scroll-precision-mode -1)
+;; gui-presentation.el enables precision scrolling only in GUI-only sessions;
+;; terminal and mixed GUI/TTY sessions retain ordinary line-based scrolling.
 
 ;;; Built-in minor modes enabled after init.
 
@@ -2182,6 +2190,26 @@ When no project is detected, always fall back to `dired' for DIR."
   (dape-breakpoint-global-mode 1)
   (repeat-mode 1))
 
+;;; LeetCode
+
+;; Browse problems, run test cases, and submit solutions from Emacs.
+(use-package leetcode
+  :ensure (:host github :repo "kaiwk/leetcode.el")
+  :commands (leetcode leetcode-try leetcode-submit)
+  :custom
+  (leetcode-prefer-language "python3")
+  (leetcode-save-solutions t)
+  (leetcode-directory "~/leetcode")
+  :init
+  (dolist (command '(jb-leetcode-new-attempt jb-leetcode-view-attempts
+                     jb-leetcode-open-notes))
+    (autoload command (expand-file-name "~/dotfiles/config/emacs/leetcode-workflow.el") nil t))
+  :config
+  (load (expand-file-name "~/dotfiles/config/emacs/leetcode-session.el")
+        nil 'nomessage)
+  (require 'leetcode-workflow
+           (expand-file-name "~/dotfiles/config/emacs/leetcode-workflow.el")))
+
 ;;; Go
 
 ;; go-ts-mode: tree-sitter based Go major mode (built-in).
@@ -2336,14 +2364,22 @@ Produces a line like: # Input ----------------------------------------------"
              gfm-view-mode
              markdown-mode
              markdown-view-mode)
-  :mode (("\\.markdown\\'" . markdown-mode)
-         ("\\.md\\'" . markdown-mode)
-         ("README\\.md\\'" . gfm-mode))
   :custom
   (markdown-fontify-code-blocks-natively t)
   :bind
   (:map markdown-mode-map
         ("C-c C-e" . markdown-do)))
+
+;; markdown-modern is a separate major mode, not a markdown-mode minor mode.
+(use-package markdown-modern
+  :ensure (:host github :repo "rjprins/markdown-modern")
+  :commands markdown-modern-mode)
+
+;; Select the major mode when opening files; the frame hooks also update
+;; already open Markdown buffers when GUI/TTY eligibility changes.
+(jb-markdown-register-mode)
+;; markdown-mode's generated autoload also prepends its own association.
+(add-hook 'elpaca-after-init-hook #'jb-markdown-register-mode)
 
 ;;; Racket
 
@@ -2892,42 +2928,42 @@ redundant static file server on a random port."
   :config
   (gptel-agent-update))
 
-;; md-ts-mode: tree-sitter Markdown mode required by pi-coding-agent.
+;; md-ts-mode: tree-sitter Markdown mode required by Pilish.
 ;; Use explicit recipe because Elpaca can fail to resolve `md-ts-mode'
 ;; from archive metadata (`:source`-only recipe).
 (use-package md-ts-mode
   :ensure (:host github :repo "dnouri/md-ts-mode"))
 
-;; markdown-table-wrap: table wrapping helper required by pi-coding-agent.
+;; markdown-table-wrap: table wrapping helper required by Pilish.
 (use-package markdown-table-wrap
   :ensure (:host github :repo "dnouri/markdown-table-wrap"))
 
-;; pi-coding-agent: native Emacs frontend for the pi coding agent.
+;; Pilish: native Emacs frontend for the pi coding agent.
 ;; Uses the same pi CLI already installed via Home Manager (PNPM global).
-(use-package pi-coding-agent
-  :ensure (:host github :repo "dnouri/pi-coding-agent")
+(use-package pilish
+  :ensure (:host github :repo "dnouri/pilish")
   :after (md-ts-mode markdown-table-wrap)
-  :commands (pi-coding-agent pi-coding-agent-toggle)
-  :bind (("C-c a p" . pi-coding-agent)
-         ("C-c a t" . pi-coding-agent-toggle))
+  :commands (pilish pilish-toggle)
+  :bind (("C-c a p" . pilish)
+         ("C-c a t" . pilish-toggle))
   :init
-  (defalias 'pi 'pi-coding-agent)
+  (defalias 'pi 'pilish)
   :custom
   ;; Emacs daemon PATH in systemd may not include PNPM_HOME.  Fall back
   ;; to the canonical pnpm global binary path when plain "pi" is missing.
-  (pi-coding-agent-executable
+  (pilish-executable
    (let ((pnpm-pi (expand-file-name "~/.local/share/pnpm/pi")))
      (if (and (not (executable-find "pi"))
               (file-executable-p pnpm-pi))
          (list pnpm-pi)
        '("pi"))))
   :config
-  ;; Disable meow in pi buffers so native pi keymaps work as documented.
-  (add-hook 'pi-coding-agent-chat-mode-hook
+  ;; Disable meow in Pilish buffers so native keymaps work as documented.
+  (add-hook 'pilish-chat-mode-hook
             (lambda ()
               (when (fboundp 'meow-mode)
                 (meow-mode -1))))
-  (add-hook 'pi-coding-agent-input-mode-hook
+  (add-hook 'pilish-input-mode-hook
             (lambda ()
               (when (fboundp 'meow-mode)
                 (meow-mode -1)))))
