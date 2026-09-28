@@ -2337,6 +2337,10 @@ Produces a line like: # Input ----------------------------------------------"
   :init
   (require 'treesit))
 
+(use-package djot-modern
+  :ensure (:host github :repo "jaybonthius/djot-modern.el")
+  :hook (djot-ts-mode . djot-modern-mode))
+
 ;;; Racket
 
 ;; Helper functions defined before use-package forms so they are
