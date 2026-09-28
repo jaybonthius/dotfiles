@@ -3,12 +3,14 @@
   "transport": "sse",
   "steeringMode": "all",
   "packages": [
-    "npm:pi-subagents",
+    {
+      "source": "npm:pi-subagents@0.69.0",
+      "extensions": []
+    },
     "npm:pi-web-access",
     "npm:pi-system-theme",
     "npm:pi-powerline-footer",
     "npm:pi-verbosity-control",
-    "npm:@benvargas/pi-claude-code-use@1.0.4",
     "npm:pi-codebase-memory-mcp",
     {
       "source": "npm:pi-agent-browser-native",

@@ -2390,6 +2390,20 @@ Produces a line like: # Input ----------------------------------------------"
 ;; markdown-mode's generated autoload also prepends its own association.
 (add-hook 'elpaca-after-init-hook #'jb-markdown-register-mode)
 
+;;; Djot
+
+;; Use Djot's upstream tree-sitter mode; Home Manager supplies the grammar.
+;; The library is named djot.el but provides djot-ts-mode, hence :no-require.
+(use-package djot
+  :ensure (:host github :repo "jgm/djot"
+           :files ("editors/emacs/djot.el"))
+  :no-require t
+  :mode (("\\.dj\\'" . djot-ts-mode)
+         ("\\.djot\\'" . djot-ts-mode))
+  :hook (djot-ts-mode . visual-line-mode)
+  :init
+  (require 'treesit))
+
 ;;; Racket
 
 ;; Helper functions defined before use-package forms so they are

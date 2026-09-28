@@ -334,6 +334,9 @@ in
       if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
           source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
       end
+      # TRAMP may start a shell with a reduced PATH but inherited "already sourced"
+      # flags, so the Nix and Home Manager profile scripts skip path setup.
+      fish_add_path --prepend --global $HOME/.nix-profile/bin /nix/var/nix/profiles/default/bin $HOME/.local/share/pnpm
     '';
     interactiveShellInit = builtins.readFile ./config/fish/config.fish;
   };
@@ -491,6 +494,11 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
     force = true;
   };
+  # Djot's upstream Emacs mode requires this grammar. Keep it Nix-managed.
+  xdg.configFile."emacs/var/tree-sitter/libtree-sitter-djot${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}" = {
+    source = "${pkgs.tree-sitter-grammars.tree-sitter-djot}/parser";
+  };
+
   # ── Claude Code ─────────────────────────────────────────────────────
   # Base config (personal/non-work settings). Merged with
   # settings.local.json (work plugins, gitignored) at activation time
