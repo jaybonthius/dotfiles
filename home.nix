@@ -65,6 +65,13 @@ let
     cargoLock.lockFile = ./config/herdr/plugins/workspace-manager/Cargo.lock;
   };
 
+  # Keep TRAMP, msgpack, and TRAMP-RPC together without replacing the signed
+  # macOS Emacs app or letting Elpaca install a second TRAMP. Servers are native
+  # Home Manager packages on each host, not cross-built deployment bundles.
+  trampRpcPackages = (pkgs.emacsPackagesFor pkgs.emacs-nox).emacsWithPackages (epkgs: [
+    (epkgs.tramp-rpc.override { archs = [ ]; })
+  ]);
+
   # ── Custom packages not in nixpkgs ──────────────────────────────────
 
   zjstatus = pkgs.stdenv.mkDerivation rec {
@@ -229,6 +236,7 @@ in
       fira-sans
 
       # Custom packages
+      emacs-tramp-rpc-server
       opener
     ]
     # On Linux use the distro compiler so builds see distro -dev headers/libs.
@@ -485,6 +493,9 @@ in
   xdg.configFile."emacs/pre-early-init.el" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/pre-early-init.el";
     force = true;
+  };
+  xdg.configFile."emacs/tramp-rpc-packages.el" = {
+    source = "${trampRpcPackages.deps}/share/emacs/site-lisp/subdirs.el";
   };
   xdg.configFile."emacs/pre-init.el" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/pre-init.el";

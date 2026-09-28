@@ -2,6 +2,12 @@
 
 ;;; Code:
 
+;;;; Nix-managed TRAMP
+
+;; Load before Elpaca or any other package can load Emacs's older bundled TRAMP.
+(load (expand-file-name "tramp-rpc-packages.el" user-emacs-directory) nil t)
+(load (expand-file-name "~/dotfiles/config/emacs/remote-access.el") nil t)
+
 ;;;; Elpaca bootstrap
 
 (defvar elpaca-installer-version 0.12)

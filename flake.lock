@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "emacs-tramp-rpc": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1790338547,
+        "narHash": "sha256-x3vR9qcahVi4mGjhqCiRn3+k5r6xv/6ihefzLVEz9uk=",
+        "owner": "ArthurHeymans",
+        "repo": "emacs-tramp-rpc",
+        "rev": "9ca02be6eceac0054a806153e99c0ffbcb8bb876",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ArthurHeymans",
+        "repo": "emacs-tramp-rpc",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -21,7 +42,7 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay"
+        "rust-overlay": "rust-overlay_2"
       },
       "locked": {
         "lastModified": 1785783176,
@@ -179,6 +200,7 @@
     },
     "root": {
       "inputs": {
+        "emacs-tramp-rpc": "emacs-tramp-rpc",
         "herdr": "herdr",
         "herdr-last-workspace": "herdr-last-workspace",
         "herdr-sessionizer": "herdr-sessionizer",
@@ -191,6 +213,27 @@
       }
     },
     "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "emacs-tramp-rpc",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1768445213,
+        "narHash": "sha256-y0BglISgDr61vvdb35m0O4npuqh1pojlBNDILo9j8AI=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "1cd63408e71cc0e6a89ff2cb7c4107214e2523cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "rust-overlay_2": {
       "inputs": {
         "nixpkgs": [
           "herdr",

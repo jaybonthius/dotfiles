@@ -4,6 +4,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     zig.url = "github:mitchellh/zig-overlay";
+    emacs-tramp-rpc = {
+      url = "github:ArthurHeymans/emacs-tramp-rpc";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -39,6 +43,7 @@
       nixpkgs,
       home-manager,
       minimal-emacs,
+      emacs-tramp-rpc,
       zig,
       paseo,
       herdr,
@@ -56,6 +61,7 @@
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
             inherit system;
+            overlays = [ emacs-tramp-rpc.overlays.default ];
             config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "drawio";
           };
           modules = [ ./home.nix ];
