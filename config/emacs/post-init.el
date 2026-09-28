@@ -2328,12 +2328,18 @@ Produces a line like: # Input ----------------------------------------------"
 ;; Home Manager supplies the pinned grammar required by djot-mode.
 (use-package djot-mode
   :ensure (:host github :repo "jaybonthius/djot-mode.el")
+  :custom
+  (djot-hide-markup t)
+  (djot-descriptive-links t)
+  (djot-src-fontify-natively t)
   :mode (("\\.dj\\'" . djot-mode)
          ("\\.djot\\'" . djot-mode))
   :hook (djot-mode . visual-line-mode))
 
 (use-package djot-modern
   :ensure (:host github :repo "jaybonthius/djot-modern.el")
+  :custom
+  (djot-modern-prose-face 'variable-pitch)
   :commands djot-modern-mode
   :hook (djot-mode . jb-djot-apply-presentation))
 
