@@ -9,6 +9,13 @@
 (add-to-list 'exec-path (expand-file-name "~/.local/bin"))
 (setenv "PATH" (concat (expand-file-name "~/.local/bin") ":" (getenv "PATH")))
 
+;; The signed macOS Emacs bundles GCC/libgccjit, but Nix's ld on PATH breaks
+;; native compilation (missing libSystem). Select Apple's assembler/linker
+;; without changing PATH for ordinary subprocesses or disabling native code.
+(when (eq system-type 'darwin)
+  (with-eval-after-load 'comp
+    (add-to-list 'native-comp-driver-options "-B/usr/bin/")))
+
 ;; Disable package.el initialization since Elpaca replaces it.
 (setq minimal-emacs-package-initialize-and-refresh nil)
 

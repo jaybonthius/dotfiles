@@ -69,7 +69,20 @@ let
   # macOS Emacs app or letting Elpaca install a second TRAMP. Servers are native
   # Home Manager packages on each host, not cross-built deployment bundles.
   trampRpcPackages = (pkgs.emacsPackagesFor pkgs.emacs-nox).emacsWithPackages (epkgs: [
-    (epkgs.tramp-rpc.override { archs = [ ]; })
+    (epkgs.tramp-rpc.override {
+      archs = [ ];
+      # nixpkgs still carries the 2020 API; RPC needs msgpack-read's keyword
+      # arguments and lossless binary decoding from msgpack 0.1.1.
+      msgpack = epkgs.msgpack.overrideAttrs {
+        version = "0.1.1";
+        src = pkgs.fetchFromGitHub {
+          owner = "xuchunyang";
+          repo = "msgpack.el";
+          rev = "5353a7b2da854c843cbec4536996242001f63471";
+          hash = "sha256-XMNaHjNx3E/HbqNyqSfotIq5YpUMydUX6d9et2VE+SI=";
+        };
+      };
+    })
   ]);
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────

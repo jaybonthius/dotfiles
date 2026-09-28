@@ -4,29 +4,35 @@
 ;; emacs -Q --batch -l config/emacs/remote-access-test.el -f ert-run-tests-batch-and-exit
 ;; Prefix with TRAMP_RPC_TEST_REMOTE=1 to exercise SSH access to jay@tungo.org.
 (require 'ert)
+(defvar minimal-emacs-user-directory (expand-file-name "~/.config/emacs/"))
+(load (expand-file-name "pre-early-init.el" (file-name-directory load-file-name)) nil t)
 (load (expand-file-name "~/.config/emacs/tramp-rpc-packages.el") nil t)
 (load (expand-file-name "remote-access.el" (file-name-directory load-file-name)) nil t)
 
 (ert-deftest jb-remote-access-methods ()
   (should (version<= "2.8.1.4" tramp-version))
   (should (featurep 'tramp-rpc))
-  (dolist (entry '(("/jay@tungo.org:/home/jay/" . "rpc")
+  (dolist (entry '(("/-:jay@tungo.org:/home/jay/" . "rpc")
                    ("/rpc:jay@tungo.org:/home/jay/" . "rpc")
                    ("/ssh:jay@tungo.org:/home/jay/" . "ssh")))
     (should (equal (tramp-file-name-method (tramp-dissect-file-name (car entry)))
                    (cdr entry)))))
 
 (ert-deftest jb-remote-access-managed-server ()
+  (should tramp-rpc-deploy-never-deploy)
+  (should-not tramp-rpc-deploy-remote-binary-path)
+  (should (equal (tramp-rpc-deploy-ensure-binary
+                  (tramp-dissect-file-name "/rpc:jay@tungo.org:/home/jay/"))
+                 "tramp-rpc-server")))
+
+(ert-deftest jb-remote-access-msgpack-api ()
+  ;; Catch nixpkgs' older msgpack API before opening any SSH connection.
   (with-temp-buffer
-    (connection-local-get-variables
-     '(:application tramp :protocol "rpc" :user "jay" :machine "tungo.org"))
-    (should (eq t (alist-get 'tramp-rpc-deploy-never-deploy connection-local-variables-alist)))
-    (should (equal (alist-get 'tramp-rpc-deploy-remote-binary-path connection-local-variables-alist)
-                   "/home/jay/.nix-profile/bin/tramp-rpc-server")))
-  (with-temp-buffer
-    (connection-local-get-variables
-     '(:application tramp :protocol "rpc" :user "jay" :machine "another-host"))
-    (should-not (assq 'tramp-rpc-deploy-never-deploy connection-local-variables-alist))))
+    (set-buffer-multibyte nil)
+    (insert (msgpack-encode '((id . 1) (result . "ok"))))
+    (let ((response (tramp-rpc-protocol-decode-response (current-buffer) (point-min) (point-max))))
+      (should (equal (plist-get response :id) 1))
+      (should (equal (plist-get response :result) "ok")))))
 
 (ert-deftest jb-remote-access-roundtrip ()
   (skip-unless (getenv "TRAMP_RPC_TEST_REMOTE"))
