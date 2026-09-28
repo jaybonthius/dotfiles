@@ -1197,8 +1197,7 @@ Otherwise behave like `backward-kill-word'."
      '("t" . uflash-treesitter)
      '("s" . query-replace)
      '("S" . query-replace-regexp)
-     '("r" . consult-ripgrep)
-     '("p" . persp-prev))
+     '("r" . consult-ripgrep))
 
     ;; Normal state (main editing)
     (meow-normal-define-key
