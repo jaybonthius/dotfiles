@@ -226,6 +226,7 @@ in
 
       # Fonts
       fira-code
+      fira-sans
 
       # Custom packages
       opener
@@ -244,9 +245,6 @@ in
       lldb # Provides lldb-dap for dape
       netcat
     ]
-    ++ lib.optionals (stdenv.isLinux && stdenv.hostPlatform.isAarch64) [
-      uv
-    ]
     ++ lib.optionals stdenv.isLinux [
       emacs-nox
       earlyoom
@@ -256,6 +254,7 @@ in
     # Nothing here is needed on work machines; see `isWorkMachine` above.
     # Keeps roughly 1.6 GiB of closure off work hosts.
     ++ lib.optionals (!isWorkMachine) [
+      uv
       go
       gopls
       zigPackage

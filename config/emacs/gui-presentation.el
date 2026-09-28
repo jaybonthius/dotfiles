@@ -37,8 +37,8 @@ invisible startup frame does not prevent graphical client presentation."
       (unless jb-org-gui--remappings
         (setq jb-org-gui--spacing (cons (local-variable-p 'line-spacing) line-spacing))
         (setq-local line-spacing 0.15)
-        ;; Reuse the platform's variable-pitch face; keep the owner's Fira Code
-        ;; fixed-pitch face.  No new fonts or global face changes are needed.
+        ;; Use the configured Fira Sans variable-pitch face for prose and
+        ;; keep technical text in Fira Code.
         (push (face-remap-add-relative 'default 'variable-pitch) jb-org-gui--remappings)
         (dolist (face '(org-block org-code org-verbatim org-table org-formula
                        org-meta-line org-special-keyword org-property-value

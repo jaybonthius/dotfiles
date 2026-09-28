@@ -279,6 +279,7 @@ Preserves rich terminal rendering (color/progress/cursor control)."
                     :weight 'regular)
 
 (set-face-attribute 'fixed-pitch nil :family "Fira Code")
+(set-face-attribute 'variable-pitch nil :family "Fira Sans")
 
 (setq-default cursor-type 'bar)
 
@@ -2379,7 +2380,9 @@ Produces a line like: # Input ----------------------------------------------"
 ;; markdown-modern is a separate major mode, not a markdown-mode minor mode.
 (use-package markdown-modern
   :ensure (:host github :repo "rjprins/markdown-modern")
-  :commands markdown-modern-mode)
+  :commands markdown-modern-mode
+  :custom
+  (markdown-modern-variable-pitch t))
 
 ;; Select the major mode when opening files; the frame hooks also update
 ;; already open Markdown buffers when GUI/TTY eligibility changes.
