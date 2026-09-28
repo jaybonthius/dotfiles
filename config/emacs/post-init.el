@@ -164,11 +164,11 @@
 
 (defun jb-home-manager-switch ()
   "Run `home-manager switch' in a Ghostel terminal buffer.
-Saves the current easysession first in case the daemon is restarted.
+Saves perspectives first in case the daemon is restarted.
 Preserves rich terminal rendering (color/progress/cursor control)."
   (interactive)
-  (when (easysession-get-session-name)
-    (easysession-save))
+  (when (bound-and-true-p persp-mode)
+    (persp-save-state-to-file))
   (require 'ghostel-compile)
   (let ((ghostel-compile-buffer-name
          (format "*hm-switch:%s*" (format-time-string "%H:%M:%S"))))
@@ -223,8 +223,7 @@ Preserves rich terminal rendering (color/progress/cursor control)."
    '(kill-ring
      register-alist
      mark-ring global-mark-ring
-     search-ring regexp-search-ring
-     easysession--current-session-name)))
+     search-ring regexp-search-ring)))
 
 ;; Save-place: remember last cursor position in files.
 (use-package saveplace
@@ -1199,7 +1198,7 @@ Otherwise behave like `backward-kill-word'."
      '("s" . query-replace)
      '("S" . query-replace-regexp)
      '("r" . consult-ripgrep)
-     '("p" . easysession-switch-to-previous))
+     '("p" . persp-prev))
 
     ;; Normal state (main editing)
     (meow-normal-define-key
@@ -1753,98 +1752,33 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
 ;; Kill the current buffer immediately instead of prompting.
 (keymap-global-set "C-x k" #'kill-current-buffer)
 
-;; easysession: persist and restore file buffers, indirect buffers/clones,
-;; Dired buffers, windows/splits, tab-bar state, and frames across sessions.
-;;
-;; Forward-declare dynamic variables referenced in `let' bindings below so the
-;; byte/native compiler knows they are special *before* easysession is loaded.
-(defvar easysession-confirm-new-session t
-  "Non-nil prompts the user for confirmation when creating a new session.")
-(defvar easysession--current-session-name nil)
-
-(use-package easysession
-  :ensure t
-  :commands (easysession-switch-to
-             easysession-save-mode
-             easysession-load
-             easysession-load-including-geometry
-             easysession-set-current-session-name)
-
+;; persp-mode: named buffer/window workspaces shared among frames. Each host
+;; keeps its own state under var/persp-confs/ (never in the dotfiles checkout).
+;; Use C-c e rather than upstream's C-c p, which belongs to Cape here.
+(use-package persp-mode
+  :ensure (:host github :repo "Bad-ptr/persp-mode.el")
+  :demand t
   :custom
-  (easysession-mode-line-misc-info t)    ; Display session name in modeline
-  (easysession-save-interval (* 10 60))  ; Save every 10 minutes
-
-  :init
-
-  ;; Track previous session for quick toggling
-  (defvar easysession-previous-session nil
-    "Name of the previously visited easysession.")
-
-  (defun easysession-switch-to-previous ()
-    "Switch to the previous easysession."
-    (interactive)
-    (if easysession-previous-session
-        (easysession-switch-to easysession-previous-session)
-      (user-error "No previous session")))
-
-  (defun jb-easysession-delete-all (&optional force)
-    "Delete all easysession sessions, including the current one.
-When FORCE is non-nil, skip the confirmation prompt."
-    (interactive)
-    ;; Unload saves the current session then clears in-memory state.
-    (easysession-unload)
-    (let ((sessions (easysession--get-all-names)))
-      (unless sessions
-        (user-error "No easysession sessions found"))
-      (when (or force
-                (yes-or-no-p
-                 (format "Delete ALL %d easysession sessions? " (length sessions))))
-        (easysession-delete sessions)
-        (setq easysession-previous-session nil)
-        (message "Deleted %d easysession sessions." (length sessions)))))
-
-  (define-advice easysession-switch-to (:before (&rest _) track-previous)
-    "Stash current session name before switching."
-    (when-let ((name (easysession-get-session-name)))
-      (setq easysession-previous-session name)))
-
-  ;; Key mappings (C-c e prefix)
-  (global-set-key (kbd "C-c e s") #'easysession-save)
-  (global-set-key (kbd "C-c e l") #'easysession-switch-to)
-  (global-set-key (kbd "C-c e L") #'easysession-switch-to-and-restore-geometry)
-  (global-set-key (kbd "C-c e p") #'easysession-switch-to-previous)
-  (global-set-key (kbd "C-c e r") #'easysession-rename)
-  (global-set-key (kbd "C-c e R") #'easysession-reset)
-  (global-set-key (kbd "C-c e d") #'easysession-delete)
-  (global-set-key (kbd "C-c e D") #'jb-easysession-delete-all)
-
-  (defun jb-restart-emacs-daemon ()
-    "Save the current easysession and restart the Emacs daemon.
-On Linux, restarts via systemd.  On macOS, restarts via launchctl."
-    (interactive)
-    (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
-      (when (easysession-get-session-name)
-        (easysession-save))
-      (if (eq system-type 'darwin)
-          (start-process "restart-emacs" nil "bash" "-c"
-                         "launchctl kickstart -k gui/$(id -u)/org.nix-community.home.emacs-daemon")
-        (start-process "restart-emacs" nil "systemctl" "--user" "restart" "emacs-daemon"))))
-
-  (global-set-key (kbd "C-c g d") #'jb-restart-emacs-daemon)
-
-  ;; easysession-setup: auto-load last session on startup (or first
-  ;; emacsclient frame in daemon mode), and enable periodic saving.
-  (add-hook 'elpaca-after-init-hook
-            (lambda ()
-              (easysession-setup))
-            95))
-
-;; easysession-scratch: persist *scratch* buffer contents across sessions.
-(use-package easysession-scratch
-  :ensure nil
-  :after easysession
+  (persp-keymap-prefix (kbd "C-c e"))
+  (persp-auto-save-opt 3)       ; Save on exit, disable, and last client frame.
+  (persp-auto-resume-time 3.0)  ; Upstream handles the first daemon client frame.
+  (persp-autokill-buffer-on-remove nil)
   :config
-  (easysession-scratch-mode 1))
+  (persp-mode 1))
+
+(defun jb-restart-emacs-daemon ()
+  "Save perspectives and restart the Emacs daemon.
+On Linux, restarts via systemd.  On macOS, restarts via launchctl."
+  (interactive)
+  (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
+    (when (bound-and-true-p persp-mode)
+      (persp-save-state-to-file))
+    (if (eq system-type 'darwin)
+        (start-process "restart-emacs" nil "bash" "-c"
+                       "launchctl kickstart -k gui/$(id -u)/org.nix-community.home.emacs-daemon")
+      (start-process "restart-emacs" nil "systemctl" "--user" "restart" "emacs-daemon"))))
+
+(global-set-key (kbd "C-c g d") #'jb-restart-emacs-daemon)
 
 ;; buffer-terminator: automatically kill inactive buffers to keep the
 ;; buffer list clean and reduce resource usage.
