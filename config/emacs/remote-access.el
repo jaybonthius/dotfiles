@@ -1,4 +1,4 @@
-;;; remote-access.el --- Shared remote access configuration -*- lexical-binding: t; -*-
+;;; remote-access.el --- Shared remote access configuration -*- no-byte-compile: t; lexical-binding: t; -*-
 
 ;; The client and server come from the same locked Nix input. Home Manager
 ;; supplies the load paths, including the newer TRAMP required by TRAMP-RPC.
