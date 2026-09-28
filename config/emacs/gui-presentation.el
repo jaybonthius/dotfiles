@@ -4,6 +4,7 @@
 (require 'face-remap)
 (require 'pixel-scroll)
 
+(declare-function djot-modern-mode "djot-modern" (&optional arg))
 (declare-function markdown-mode "markdown-mode" ())
 (declare-function gfm-mode "markdown-mode" ())
 (declare-function markdown-modern-mode "markdown-modern" ())
@@ -87,6 +88,13 @@ invisible startup frame does not prevent graphical client presentation."
                       jb-gui-presentation-active)))
     (jb-markdown-select-mode)))
 
+(defun jb-djot-apply-presentation ()
+  "Enable Djot Modern only in GUI-only sessions."
+  (when (derived-mode-p 'djot-mode)
+    (if jb-gui-presentation-active
+        (unless (bound-and-true-p djot-modern-mode) (djot-modern-mode 1))
+      (when (bound-and-true-p djot-modern-mode) (djot-modern-mode -1)))))
+
 (defun jb-org-agenda-apply-presentation ()
   "Style new agenda output only in a GUI-only process."
   (when jb-gui-presentation-active (org-modern-agenda)))
@@ -101,6 +109,7 @@ invisible startup frame does not prevent graphical client presentation."
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
         (jb-org-apply-presentation)
+        (jb-djot-apply-presentation)
         (when changed (jb-markdown-apply-presentation))))
     ;; Agenda styling also writes text properties: regenerate instead of
     ;; leaving a previously GUI-styled agenda visible to a new TTY client.

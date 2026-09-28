@@ -2325,21 +2325,17 @@ Produces a line like: # Input ----------------------------------------------"
 
 ;;; Djot
 
-;; Use Djot's upstream tree-sitter mode; Home Manager supplies the grammar.
-;; The library is named djot.el but provides djot-ts-mode, hence :no-require.
-(use-package djot
-  :ensure (:host github :repo "jgm/djot"
-           :files ("editors/emacs/djot.el"))
-  :no-require t
-  :mode (("\\.dj\\'" . djot-ts-mode)
-         ("\\.djot\\'" . djot-ts-mode))
-  :hook (djot-ts-mode . visual-line-mode)
-  :init
-  (require 'treesit))
+;; Home Manager supplies the pinned grammar required by djot-mode.
+(use-package djot-mode
+  :ensure (:host github :repo "jaybonthius/djot-mode.el")
+  :mode (("\\.dj\\'" . djot-mode)
+         ("\\.djot\\'" . djot-mode))
+  :hook (djot-mode . visual-line-mode))
 
 (use-package djot-modern
   :ensure (:host github :repo "jaybonthius/djot-modern.el")
-  :hook (djot-ts-mode . djot-modern-mode))
+  :commands djot-modern-mode
+  :hook (djot-mode . jb-djot-apply-presentation))
 
 ;;; Racket
 

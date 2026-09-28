@@ -51,6 +51,16 @@ let
   };
   zigPackage = zig.packages.${pkgs.system}.default;
 
+  djotGrammar = pkgs.tree-sitter-grammars.tree-sitter-djot.overrideAttrs {
+    version = "2.1.0-3025cd0";
+    src = pkgs.fetchFromGitHub {
+      owner = "jaybonthius";
+      repo = "tree-sitter-djot";
+      rev = "3025cd0c9fe0c0b27030725fbec27f8cab98b241";
+      hash = "sha256-DhItHxAGLX5RDkXLi4yH6/ttSNHr44P87g+zHuZ8F+U=";
+    };
+  };
+
   herdrLastWorkspacePackage = pkgs.rustPlatform.buildRustPackage {
     pname = "herdr-last-workspace";
     version = "0.1.0";
@@ -518,9 +528,9 @@ in
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/emacs/post-init.el";
     force = true;
   };
-  # Djot's upstream Emacs mode requires this grammar. Keep it Nix-managed.
+  # Use the tested grammar fork required by djot-mode; keep it Nix-managed.
   xdg.configFile."emacs/var/tree-sitter/libtree-sitter-djot${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}" = {
-    source = "${pkgs.tree-sitter-grammars.tree-sitter-djot}/parser";
+    source = "${djotGrammar}/parser";
   };
 
   # ── Claude Code ─────────────────────────────────────────────────────
