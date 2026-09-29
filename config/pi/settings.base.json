@@ -25,49 +25,49 @@
   "subagents": {
     "agentOverrides": {
       "worker": {
-        "model": "openai-codex/gpt-6-astra",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "high",
         "tools": "inherit",
         "inheritSkills": true
       },
       "reviewer": {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "model": "openai-codex/gpt-6.1-sol",
+        "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "planner": {
-        "model": "openai-codex/gpt-6-astra",
-        "thinking": "high",
+        "model": "openai-codex/gpt-6.1-sol",
+        "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "oracle": {
-        "model": "openai-codex/gpt-6-astra",
+        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "scout": {
-        "model": "openai-codex/gpt-5.6-terra",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "context-builder": {
-        "model": "openai-codex/gpt-5.6-terra",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "researcher": {
-        "model": "openai-codex/gpt-5.6-terra",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "delegate": {
-        "model": "openai-codex/gpt-5.6-luna",
+        "model": "openai-codex/gpt-6-luna",
         "thinking": "low",
         "tools": "inherit",
         "inheritSkills": true
