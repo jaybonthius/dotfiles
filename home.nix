@@ -907,6 +907,24 @@ in
         "${jimeh-emacs}/Applications/Emacs.app/Contents/MacOS/Emacs"
         "--fg-daemon"
       ];
+      # launchd starts agents with PATH=/usr/bin:/bin:/usr/sbin:/sbin, so the
+      # Nix profile (rg, git, fd, ...) is missing until exec-path-from-shell
+      # finishes its ~10s fish round-trip. Anything probing executables at
+      # load time (e.g. dumb-jump's rg check) misses them. Seed PATH here.
+      EnvironmentVariables.PATH = lib.concatStringsSep ":" (
+        [
+          "${homeDirectory}/.nix-profile/bin"
+          "/nix/var/nix/profiles/default/bin"
+        ]
+        ++ map (lib.replaceStrings [ "$HOME" ] [ homeDirectory ]) config.home.sessionPath
+        ++ [
+          "/usr/local/bin"
+          "/usr/bin"
+          "/bin"
+          "/usr/sbin"
+          "/sbin"
+        ]
+      );
       KeepAlive = true;
       RunAtLoad = true;
     };
