@@ -65,6 +65,7 @@
 ;; relay OSC 52 upward themselves.
 (use-package clipetty
   :ensure t
+  :demand t
   :init (setenv "SSH_TTY" nil)
   :bind ("M-w" . clipetty-kill-ring-save))
 
@@ -129,7 +130,7 @@
 (global-set-key (kbd "C-c g o") #'jb-browse-file-remote)
 
 ;; Ghostel: Fish terminals with automatic shell integration.
-;; Meow stays off so terminal keys pass through; s-m toggles it back on.
+;; Hel stays off so terminal keys pass through; s-m toggles it back on.
 (use-package ghostel
   :ensure (:host github :repo "dakra/ghostel"
            :ref "c2c411f2b0051465a5f5e7826ebab4ed216d4c0e")
@@ -141,9 +142,7 @@
   :custom
   (ghostel-shell (executable-find "fish"))
   ;; Keep the loaded native module outside Elpaca's rebuildable package tree.
-  (ghostel-module-directory (expand-file-name "ghostel/" user-emacs-directory))
-  :config
-  (add-hook 'ghostel-mode-hook (lambda () (meow-mode -1))))
+  (ghostel-module-directory (expand-file-name "ghostel/" user-emacs-directory)))
 
 ;; Terminal mouse support.
 (unless (display-graphic-p)
@@ -247,12 +246,26 @@ Preserves rich terminal rendering (color/progress/cursor control)."
   :commands which-key-mode
   :hook (after-init . which-key-mode)
   :custom
-  (which-key-idle-delay 1.5)
+  (which-key-idle-delay 0.5)
   (which-key-idle-secondary-delay 0.25)
   (which-key-add-column-padding 1)
   (which-key-max-description-length 40)
+  (which-key-show-remaining-keys t)
   :config
-  (which-key-add-key-based-replacements "C-c l" "language"))
+  ;; hel-leader previews these same C-c groups after pressing Space.
+  (which-key-add-key-based-replacements
+    "C-c a" "agents"
+    "C-c b" "buffers"
+    "C-c e" "workspaces"
+    "C-c f" "files"
+    "C-c g" "AI / system"
+    "C-c l" "language"
+    "C-c n" "notes"
+    "C-c o" "open"
+    "C-c p" "completion"
+    "C-c s" "search"
+    "C-c t" "TODO"
+    "C-c w" "windows"))
 
 ;;; Autosave
 
@@ -907,7 +920,14 @@ Ensures required directories and files exist, sets up file-notify."
   (doom-modeline-vcs-max-length 20)
   (doom-modeline-check 'auto)
   (doom-modeline-lsp t)
-  (doom-modeline-highlight-modified-buffer-name t))
+  (doom-modeline-highlight-modified-buffer-name t)
+  :config
+  ;; Doom Modeline has no Hel segment; retain its other modal indicators.
+  (define-advice doom-modeline-segment--modals
+      (:filter-return (segment) jb-hel)
+    (if (and doom-modeline-modal (bound-and-true-p hel-local-mode))
+        (concat (hel-state-mode-line-tag) (doom-modeline-spc) segment)
+      segment)))
 
 ;;; Line numbers: disabled in buffers.
 
@@ -1100,19 +1120,21 @@ Otherwise behave like `backward-kill-word'."
   (define-key key-translation-map (kbd "<f12>") 'event-apply-control-modifier))
 
 ;;; ============================================================================
-;;; Modal editing: Symex + Meow
+;;; Modal editing: Symex + Hel
 ;;; ============================================================================
 
 ;;; Symex: structural s-expression editing via a Lithium modal interface.
-;;; Uses IJKL directional keys to match the Meow layout below.
+;;; Uses IJKL directional keys to match the Hel layout below.
 
 (use-package symex-core
   :ensure (:host github
                  :repo "drym-org/symex.el"
-                 :files ("symex-core/symex*.el")))
+                 :files ("symex-core/symex*.el"))
+  :demand t)
 
 (use-package symex
   :after symex-core
+  :demand t
   :ensure (:host github
                  :repo "drym-org/symex.el"
                  :files ("symex/symex*.el"
@@ -1156,135 +1178,134 @@ Otherwise behave like `backward-kill-word'."
   :config
   (symex-ide-mode 1))
 
-;;; Meow: modal editing with a custom IJKL directional layout.
-;;; i=up, j=left, k=down, l=right.  h=insert (replaces the traditional i).
+;;; Hel: selection-first editing with IJKL movement and h/H for insertion.
+;;; Other editing keys follow Hel defaults (v extends, m marks/surrounds).
 
-(use-package meow
-  :ensure (:host github :repo "meow-edit/meow")
+(use-package hel
+  :ensure (:host github :repo "helheim-emacs/hel"
+           :ref "8e0a5cd6780cc4ec0d899632968176075d4d9ed0")
+  :after clipetty
+  :demand t
+  :init
+  ;; Keep C-h help and the existing Vertico minibuffer keys.
+  (setq hel-want-C-hjkl-keys nil
+        hel-want-minibuffer nil)
+  :custom
+  (hel-normal-state-cursor-type '(bar . 2))
+  (hel-emacs-state-cursor-type '(bar . 2))
   :config
-  (defun meow-setup ()
-    "Configure Meow keybindings with an IJKL directional layout."
-    (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
+  (defun jb-hel-disable ()
+    "Disable Hel locally so the major mode receives its native keys."
+    (hel-local-mode -1)
+    (setq-local cursor-type '(bar . 2)))
 
-    ;; Motion state (read-only buffers: Dired, Help, etc.)
-    (meow-motion-define-key
-     '("i" . meow-prev)
-     '("k" . meow-next)
-     '("<escape>" . ignore))
+  (dolist (hook '(ghostel-mode-hook magit-mode-hook
+                  pilish-chat-mode-hook pilish-input-mode-hook))
+    (add-hook hook #'jb-hel-disable))
 
-    ;; Leader (SPC prefix)
-    (meow-leader-define-key
-     ;; Digit arguments
-     '("1" . meow-digit-argument)
-     '("2" . meow-digit-argument)
-     '("3" . meow-digit-argument)
-     '("4" . meow-digit-argument)
-     '("5" . meow-digit-argument)
-     '("6" . meow-digit-argument)
-     '("7" . meow-digit-argument)
-     '("8" . meow-digit-argument)
-     '("9" . meow-digit-argument)
-     '("0" . meow-digit-argument)
-     '("/" . meow-keypad-describe-key)
-     '("?" . meow-cheatsheet)
-     ;; Code navigation (xref)
-     '("." . xref-find-definitions)
-     '("," . xref-go-back)
-     '("r" . xref-find-references)
-     ;; Search & replace
-     '("l" . consult-line)
-     '(";" . flash-jump)
-     '("t" . uflash-treesitter)
-     '("s" . query-replace)
-     '("S" . query-replace-regexp)
-     '("r" . consult-ripgrep))
-
-    ;; Normal state (main editing)
-    (meow-normal-define-key
-     ;; Expansion
-     '("0" . meow-expand-0)
-     '("9" . meow-expand-9)
-     '("8" . meow-expand-8)
-     '("7" . meow-expand-7)
-     '("6" . meow-expand-6)
-     '("5" . meow-expand-5)
-     '("4" . meow-expand-4)
-     '("3" . meow-expand-3)
-     '("2" . meow-expand-2)
-     '("1" . meow-expand-1)
-     '("-" . negative-argument)
-     '(";" . meow-reverse)
-     '("," . meow-inner-of-thing)
-     '("." . meow-bounds-of-thing)
-     '("[" . meow-beginning-of-thing)
-     '("]" . meow-end-of-thing)
-     ;; Movement (IJKL)
-     '("i" . meow-prev)
-     '("I" . meow-prev-expand)
-     '("j" . meow-left)
-     '("J" . meow-left-expand)
-     '("k" . meow-next)
-     '("K" . meow-next-expand)
-     '("l" . meow-right)
-     '("L" . meow-right-expand)
-     ;; Editing
-     '("a" . meow-append)
-     '("A" . meow-open-below)
-     '("b" . meow-back-word)
-     '("B" . meow-back-symbol)
-     '("c" . meow-change)
-     '("d" . meow-delete)
-     '("D" . meow-backward-delete)
-     '("e" . meow-next-word)
-     '("E" . meow-next-symbol)
-     '("f" . meow-find)
-     '("g" . meow-cancel-selection)
-     '("G" . meow-grab)
-     '("h" . meow-insert)
-     '("H" . meow-open-above)
-     '("m" . meow-join)
-     '("n" . meow-search)
-     '("o" . meow-block)
-     '("O" . meow-to-block)
-     '("p" . meow-yank)
-     '("q" . meow-quit)
-     '("Q" . meow-goto-line)
-     '("r" . meow-replace)
-     '("R" . meow-swap-grab)
-     '("s" . meow-kill)
-     '("t" . meow-till)
-     '("u" . meow-undo)
-     '("U" . meow-undo-in-selection)
-     '("v" . meow-visit)
-     '("w" . meow-mark-word)
-     '("W" . meow-mark-symbol)
-     '("x" . meow-line)
-     '("X" . meow-goto-line)
-     '("y" . clipetty-kill-ring-save)
-     '("Y" . meow-sync-grab)
-     '("z" . meow-pop-selection)
-     '("'" . repeat)
-     '("<escape>" . ignore)))
-
-  (meow-setup)
-  (setq meow-cursor-type-default '(bar . 2))
-  (meow-global-mode 1)
-
-  ;; s-m: toggle meow on/off in the current buffer.
-  ;; When toggled on, forces normal state (full keymap) so the underlying
-  ;; mode's bindings are completely suppressed.
-  (defun meow-toggle ()
-    "Toggle meow-mode in the current buffer.
-When enabling, always enter normal state so that meow's full keymap
-takes priority and the underlying mode's keys are suppressed."
+  (defun jb-hel-toggle ()
+    "Toggle Hel in this buffer, entering Normal state when enabled."
     (interactive)
-    (if meow-mode
-        (progn
-          (meow-mode -1)
-          (meow--set-cursor-type '(bar . 2)))
-      (meow-mode 1)
-      (meow--switch-state 'normal)))
-  (global-set-key (kbd "s-m") #'meow-toggle))
+    (if hel-local-mode
+        (jb-hel-disable)
+      (hel-local-mode 1)
+      (hel-normal-state)))
+  (global-set-key (kbd "s-m") #'jb-hel-toggle)
+
+  (hel-keymap-global-set :state 'normal
+    "i" #'hel-previous-line
+    "j" #'hel-backward-char
+    "k" #'hel-next-line
+    "l" #'hel-forward-char
+    "h" #'hel-insert
+    "H" #'hel-insert-line
+    "I" nil
+    "g i" #'hel-avy-previous-line
+    "g j" nil
+    "g k" #'hel-avy-next-line)
+
+  (hel-keymap-set hel-window-map
+    "h" nil
+    "i" #'windmove-up
+    "j" #'windmove-left
+    "k" #'windmove-down
+    "H" nil
+    "I" #'hel-move-window-up
+    "J" #'hel-move-window-left
+    "K" #'hel-move-window-down
+    "C-h" nil
+    "C-<i>" #'windmove-up
+    "C-j" #'windmove-left
+    "C-k" #'windmove-down)
+
+  ;; Hel adds HJKL and i to special-mode's base map. Match our layout
+  ;; there too, without replacing Dired/Magit's own command maps.
+  (hel-keymap-set special-mode-map
+    "h" #'hel-normal-state
+    "i" #'previous-line
+    "j" #'left-char
+    "k" #'next-line)
+
+  ;; Symex's documented interop callbacks return to the right Hel state.
+  (defun symex-user-defined-higher-mode ()
+    "Return from Symex to Hel Normal state."
+    (hel-normal-state))
+  (defun symex-user-defined-lower-mode ()
+    "Return from Symex to ordinary insertion."
+    (hel-insert-state))
+  (defun symex-user-defined-lowest-mode ()
+    "Enter Hel Insert state after a Symex insertion command."
+    (hel-insert-state))
+
+  ;; Copy via Hel's per-cursor kill rings, but retain explicit OSC 52
+  ;; clipboard export on y rather than exporting every deletion.
+  (hel-define-command jb-hel-copy ()
+    "Copy the Hel selection and export it to the system clipboard."
+    ;; hel-copy already visits every cursor; do not replay the wrapper.
+    :multiple-cursors nil
+    (interactive)
+    (let ((was-enabled clipetty-mode))
+      (unwind-protect
+          (progn
+            (unless was-enabled (clipetty-mode 1))
+            (hel-copy))
+        (unless was-enabled (clipetty-mode -1)))))
+  (hel-keymap-global-set :state 'normal "y" #'jb-hel-copy)
+  (hel-mode 1))
+
+;; Like Helheim, Space translates C-c bindings and previews them through
+;; which-key; insert state still receives literal spaces. Keep C-c p (Cape),
+;; C-c e (perspectives), C-c l (language tools), and C-c g (AI/system).
+(use-package hel-leader
+  :ensure (:host github :repo "helheim-emacs/hel-leader"
+           :ref "32230075e01749ace44ddf2d25fca0ba6aa98fbd")
+  :after hel
+  :demand t
+  :custom
+  ;; Lowercase g/m must remain usable as native C-c command groups.
+  (hel-leader-meta-prefix "M")
+  (hel-leader-ctrl-meta-prefix "G")
+  :config
+  (hel-keymap-set mode-specific-map
+    "." #'xref-find-definitions
+    "," #'xref-go-back
+    "/" #'consult-ripgrep
+    ";" #'flash-jump
+    "?" #'describe-bindings
+    "b b" #'consult-buffer
+    "b k" #'kill-current-buffer
+    "b s" #'save-buffer
+    "f f" #'find-file
+    "f r" #'consult-recent-file
+    "o t" #'ghostel
+    "o p" #'ghostel-project
+    "o m" #'magit-status
+    "o s" #'symbols-outline-show
+    "s l" #'consult-line
+    "s r" #'query-replace
+    "s R" #'query-replace-regexp
+    "s t" #'flash-treesitter
+    "s x" #'xref-find-references))
 
 ;;; ============================================================================
 ;;; Completion (minibuffer): Vertico + Orderless + Marginalia + Consult + Embark
@@ -1473,6 +1494,8 @@ takes priority and the underlying mode's keys are suppressed."
 ;; Provides additional completion backends for corfu.
 (use-package cape
   :ensure t
+  ;; hel-leader must see a keymap here, not an unloaded prefix autoload.
+  :demand t
   :commands (cape-dabbrev cape-file cape-elisp-block)
   :bind ("C-c p" . cape-prefix-map)
   :init
@@ -1584,10 +1607,7 @@ takes priority and the underlying mode's keys are suppressed."
   :custom
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
   :config
-  ;; Disable meow by default in magit buffers so all magit keys work
-  ;; natively.  Press s-m to toggle meow on for IJKL movement.
-  (add-hook 'magit-mode-hook (lambda () (meow-mode -1)))
-
+  ;; Native Magit keys are preserved by the Hel exclusions above.
 
   (defun jb-magit-open-repo ()
     "Open the remote origin repo URL in a browser."
@@ -2918,17 +2938,7 @@ redundant static file server on a random port."
      (if (and (not (executable-find "pi"))
               (file-executable-p pnpm-pi))
          (list pnpm-pi)
-       '("pi"))))
-  :config
-  ;; Disable meow in Pilish buffers so native keymaps work as documented.
-  (add-hook 'pilish-chat-mode-hook
-            (lambda ()
-              (when (fboundp 'meow-mode)
-                (meow-mode -1))))
-  (add-hook 'pilish-input-mode-hook
-            (lambda ()
-              (when (fboundp 'meow-mode)
-                (meow-mode -1)))))
+       '("pi")))))
 
 (with-eval-after-load 'gptel-agent-tools
   (defun gptel-agent--glob (pattern &optional path depth)
