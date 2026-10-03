@@ -211,6 +211,13 @@ in
 
   programs.home-manager.enable = true;
 
+  # Copy .app bundles into ~/Applications/Home Manager Apps instead of
+  # symlinking the directory into the store. linkApps (the default for
+  # stateVersion < 25.11) points at a new store hash every generation, so
+  # Raycast/Spotlight index a fresh duplicate of each app per switch.
+  targets.darwin.linkApps.enable = false;
+  targets.darwin.copyApps.enable = true;
+
   # ── Packages ────────────────────────────────────────────────────────
 
   home.packages =
@@ -490,7 +497,7 @@ in
   };
 
   # ── Ghostty ─────────────────────────────────────────────────────────
-  # Config + themes only (Ghostty itself is installed outside Nix).
+  # Ghostty itself comes from ghostty-bin in home.packages (Darwin).
   # Out-of-store symlink of the whole directory so edits to config or
   # themes take effect immediately without `home-manager switch`.
   xdg.configFile."ghostty" = {
