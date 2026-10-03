@@ -168,15 +168,6 @@ post_setup_notes() {
     echo "     cat ~/.ssh/id_ed25519.pub"
     echo "     # Add to: https://github.com/settings/ssh/new"
     echo ""
-    echo "  2. Start Emacs daemon (first run only):"
-    if [ "$(uname -s)" = "Darwin" ]; then
-        echo "     # launchd agent is installed — just log out and back in,"
-        echo "     # or start it now with:"
-        echo "     launchctl load ~/Library/LaunchAgents/org.nix-community.home.emacs-daemon.plist"
-    else
-        echo "     systemctl --user start emacs-daemon"
-    fi
-    echo ""
 }
 
 # ── Main ──────────────────────────────────────────────────────────────

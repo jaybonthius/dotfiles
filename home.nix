@@ -314,8 +314,8 @@ in
 
   home.sessionVariables = {
     COLORTERM = "truecolor";
-    EDITOR = "emacsclient -t -a emacs";
-    VISUAL = "emacsclient -t -a emacs";
+    EDITOR = "emacs -nw";
+    VISUAL = "emacs -nw";
     GOPATH = "$HOME/go";
     GOBIN = "$HOME/go/bin";
     PNPM_HOME = "$HOME/.local/share/pnpm";
@@ -842,28 +842,6 @@ in
       };
     };
 
-    emacs-daemon = {
-      Unit = {
-        Description = "Emacs daemon";
-        After = [ "default.target" ];
-      };
-      Service = {
-        Type = "simple";
-        ExecStart = "${pkgs.emacs-nox}/bin/emacs --fg-daemon";
-        Restart = "on-failure";
-        RestartSec = "3s";
-        Environment = [
-          "PATH=%h/.nix-profile/bin:/nix/var/nix/profiles/default/bin:%h/bin:%h/.local/bin:${
-            lib.optionalString (!isWorkMachine) "%h/racket/bin:"
-          }%h/go/bin:/opt/gerbil/bin:/usr/local/bin:/usr/bin:/bin"
-          "SSH_AUTH_SOCK=%h/.ssh/ssh_auth_sock"
-        ];
-      };
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
-    };
-
     theme-state-to-gsettings = {
       Unit = {
         Description = "Sync ~/.local/state/theme to GNOME";
@@ -895,38 +873,6 @@ in
       Install = {
         WantedBy = [ "default.target" ];
       };
-    };
-  };
-
-  # ── Launchd agents (macOS only) ─────────────────────────────────────
-
-  launchd.agents.emacs-daemon = lib.mkIf pkgs.stdenv.isDarwin {
-    enable = true;
-    config = {
-      ProgramArguments = [
-        "${jimeh-emacs}/Applications/Emacs.app/Contents/MacOS/Emacs"
-        "--fg-daemon"
-      ];
-      # launchd starts agents with PATH=/usr/bin:/bin:/usr/sbin:/sbin, so the
-      # Nix profile (rg, git, fd, ...) is missing until exec-path-from-shell
-      # finishes its ~10s fish round-trip. Anything probing executables at
-      # load time (e.g. dumb-jump's rg check) misses them. Seed PATH here.
-      EnvironmentVariables.PATH = lib.concatStringsSep ":" (
-        [
-          "${homeDirectory}/.nix-profile/bin"
-          "/nix/var/nix/profiles/default/bin"
-        ]
-        ++ map (lib.replaceStrings [ "$HOME" ] [ homeDirectory ]) config.home.sessionPath
-        ++ [
-          "/usr/local/bin"
-          "/usr/bin"
-          "/bin"
-          "/usr/sbin"
-          "/sbin"
-        ]
-      );
-      KeepAlive = true;
-      RunAtLoad = true;
     };
   };
 
@@ -991,7 +937,7 @@ in
     PATH="${pkgs.nodejs}/bin:$PNPM_HOME:$PATH" \
       run ${pkgs.pnpm}/bin/pnpm add -g --allow-build=better-sqlite3 \
         deepmerge @fission-ai/openspec@latest skills ${
-          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent piscord"
+          lib.optionalString (!isWorkMachine) "@earendil-works/pi-coding-agent@latest piscord"
         }
     ${lib.optionalString (!isWorkMachine) ''
       # Retire the CLI dependency installed by older dotfiles so pnpm cannot
