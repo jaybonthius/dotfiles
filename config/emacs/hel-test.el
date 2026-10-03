@@ -119,7 +119,7 @@
       (funcall mode)
       (should-not hel-local-mode)
       (should-not hel-state)
-      (should (equal cursor-type '(bar . 2)))
+      (should (eq cursor-type 'bar))
       (let ((native-space (key-binding (kbd "SPC"))))
         (jb-hel-toggle)
         (should hel-local-mode)

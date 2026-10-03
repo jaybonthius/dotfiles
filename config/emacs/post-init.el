@@ -295,6 +295,14 @@ Preserves rich terminal rendering (color/progress/cursor control)."
 
 (setq-default cursor-type 'bar)
 
+;; Terminal frames ignore `cursor-type'; mirror it with DECSCUSR escapes.
+(use-package term-cursor
+  :ensure (:host github :repo "denrat/term-cursor.el"
+           :ref "d6c9b46c6ad73875db4ce04cac335846f86fb7e7")
+  :demand t
+  :config
+  (global-term-cursor-mode 1))
+
 ;;; Tab bar: hidden, with history-based window undo/redo.
 
 (use-package tab-bar
@@ -1191,13 +1199,14 @@ Otherwise behave like `backward-kill-word'."
   (setq hel-want-C-hjkl-keys nil
         hel-want-minibuffer nil)
   :custom
-  (hel-normal-state-cursor-type '(bar . 2))
-  (hel-emacs-state-cursor-type '(bar . 2))
+  (hel-normal-state-cursor-type 'box)
+  (hel-insert-state-cursor-type 'bar)
+  (hel-emacs-state-cursor-type 'bar)
   :config
   (defun jb-hel-disable ()
     "Disable Hel locally so the major mode receives its native keys."
     (hel-local-mode -1)
-    (setq-local cursor-type '(bar . 2)))
+    (setq-local cursor-type 'bar))
 
   (dolist (hook '(ghostel-mode-hook magit-mode-hook
                   pilish-chat-mode-hook pilish-input-mode-hook))
@@ -1785,20 +1794,6 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   :config
   (persp-mode 1))
 
-(defun jb-restart-emacs-daemon ()
-  "Save perspectives and restart the Emacs daemon.
-On Linux, restarts via systemd.  On macOS, restarts via launchctl."
-  (interactive)
-  (when (y-or-n-p "Restart Emacs daemon? All frames will be closed. ")
-    (when (bound-and-true-p persp-mode)
-      (persp-save-state-to-file))
-    (if (eq system-type 'darwin)
-        (start-process "restart-emacs" nil "bash" "-c"
-                       "launchctl kickstart -k gui/$(id -u)/org.nix-community.home.emacs-daemon")
-      (start-process "restart-emacs" nil "systemctl" "--user" "restart" "emacs-daemon"))))
-
-(global-set-key (kbd "C-c g d") #'jb-restart-emacs-daemon)
-
 ;; buffer-terminator: automatically kill inactive buffers to keep the
 ;; buffer list clean and reduce resource usage.
 (use-package buffer-terminator
@@ -2209,6 +2204,39 @@ When no project is detected, always fall back to `dired' for DIR."
     "Set up format-on-save for templ via eglot (templ lsp)."
     (add-hook 'before-save-hook #'eglot-format-buffer -10 t))
   (add-hook 'templ-ts-mode-hook #'jb-templ-before-save-hooks))
+
+;;; Jinja templates
+
+;; Jinja recommends a double extension (user.html.jinja); Ansible and the
+;; Nomad generators use .j2.  Strip the template suffix so the inner
+;; extension picks the host mode, the same way Emacs treats .in and .orig:
+;; default.nomad.j2 opens in hcl-mode, Makefile.j2 in makefile-mode.
+(defconst jb-jinja-file-regexp "\\.\\(?:j2\\|jinja2?\\)\\'"
+  "Regexp matching the suffix of Jinja template file names.")
+
+(add-to-list 'auto-mode-alist (list jb-jinja-file-regexp nil t))
+
+(defconst jb-jinja-font-lock-keywords
+  '(("{#\\(?:[^#]\\|#[^}]\\)*#}" 0 'font-lock-comment-face t)
+    ("{%\\(?:[^%]\\|%[^}]\\)*%}" 0 'font-lock-preprocessor-face t)
+    ("{{\\(?:[^}]\\|}[^}]\\)*}}" 0 'font-lock-preprocessor-face t))
+  "Font-lock rules that paint Jinja tags over the host mode's faces.")
+
+(define-minor-mode jb-jinja-mode
+  "Highlight Jinja tags on top of the buffer's major mode."
+  :lighter " Jinja"
+  (if jb-jinja-mode
+      (font-lock-add-keywords nil jb-jinja-font-lock-keywords 'append)
+    (font-lock-remove-keywords nil jb-jinja-font-lock-keywords))
+  (font-lock-flush))
+
+(defun jb-jinja-maybe-enable ()
+  "Enable `jb-jinja-mode' in buffers visiting Jinja template files."
+  (when (and buffer-file-name
+             (string-match-p jb-jinja-file-regexp buffer-file-name))
+    (jb-jinja-mode 1)))
+
+(add-hook 'after-change-major-mode-hook #'jb-jinja-maybe-enable)
 
 ;;; Python
 
