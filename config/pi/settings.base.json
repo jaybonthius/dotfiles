@@ -18,7 +18,6 @@
     },
     "../browser-runtime",
     "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:pi-mcp-adapter",
     "npm:@plannotator/pi-extension",
     "https://github.com/sting8k/pi-vcc"
   ],

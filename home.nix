@@ -556,6 +556,18 @@ in
         };
       };
 
+  # Built-in MCP reads each agent directory rather than the shared XDG config.
+  home.file.".pi/agent/mcp.json" =
+    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
+      {
+        source = config.xdg.configFile."mcp/mcp.json".source;
+      };
+  home.file.".pi/discord-agent/mcp.json" =
+    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
+      {
+        source = config.xdg.configFile."mcp/mcp.json".source;
+      };
+
   home.file.".pi/agent/settings.base.json" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
     force = true;
@@ -927,7 +939,7 @@ in
   # shadows these nix-managed pnpm copies. Harmless today (same versions) but not
   # reproducible. Revisit by removing the ~/.npm-global duplicates so the
   # nix-managed copies win, and auditing the other ~/.npm-global CLIs
-  # (pi-browser-use, pi-subagents, pi-mcp-adapter, taskplane, latchkey,
+  # (pi-browser-use, pi-subagents, taskplane, latchkey,
   # claude-agent-acp) for pi-managed vs. orphaned.
   home.activation.installPnpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     export PNPM_HOME="$HOME/.local/share/pnpm"
