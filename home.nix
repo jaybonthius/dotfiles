@@ -38,6 +38,18 @@ let
 
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
 
+  gerbilMcpEnabled = !isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux";
+  piMcpTools = builtins.fromJSON (builtins.readFile ./config/pi/subagent-mcp-tools.json);
+  piInteractiveMcpTools = piMcpTools.shared ++ piMcpTools.interactiveOnly;
+  piDiscordMcpTools = piMcpTools.shared;
+  # Native MCP is selected with mcp:server, not tools:inherit. Keep the
+  # explicit allowlist alongside the packages whose tools it preserves.
+  piMcpDefaults = lib.optionalAttrs gerbilMcpEnabled {
+    subagents.agentOverrides = lib.mapAttrs (_: _: {
+      tools = piInteractiveMcpTools;
+    }) (builtins.fromJSON (builtins.readFile ./config/pi/settings.base.json)).subagents.agentOverrides;
+  };
+
   mattPocockSkill = name: {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/${name}";
     force = true;
@@ -215,8 +227,8 @@ in
   # symlinking the directory into the store. linkApps (the default for
   # stateVersion < 25.11) points at a new store hash every generation, so
   # Raycast/Spotlight index a fresh duplicate of each app per switch.
-  targets.darwin.linkApps.enable = false;
-  targets.darwin.copyApps.enable = true;
+  targets.darwin.linkApps.enable = lib.mkIf pkgs.stdenv.isDarwin false;
+  targets.darwin.copyApps.enable = lib.mkIf pkgs.stdenv.isDarwin true;
 
   # ── Packages ────────────────────────────────────────────────────────
 
@@ -552,28 +564,22 @@ in
 
   # ── Pi Coding Agent (personal machines only) ─────────────────────────
   # Existing Pi state on pairing hosts is intentionally left unmanaged.
-  xdg.configFile."mcp/mcp.json" =
-    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
-      {
-        text = builtins.toJSON {
-          mcpServers.gerbil = {
-            command = "gerbil-mcp";
-            env.GERBIL_MCP_MODE = "full";
-          };
-        };
+  xdg.configFile."mcp/mcp.json" = lib.mkIf gerbilMcpEnabled {
+    text = builtins.toJSON {
+      mcpServers.gerbil = {
+        command = "gerbil-mcp";
+        env.GERBIL_MCP_MODE = "full";
       };
+    };
+  };
 
   # Built-in MCP reads each agent directory rather than the shared XDG config.
-  home.file.".pi/agent/mcp.json" =
-    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
-      {
-        source = config.xdg.configFile."mcp/mcp.json".source;
-      };
-  home.file.".pi/discord-agent/mcp.json" =
-    lib.mkIf (!isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux")
-      {
-        source = config.xdg.configFile."mcp/mcp.json".source;
-      };
+  home.file.".pi/agent/mcp.json" = lib.mkIf gerbilMcpEnabled {
+    source = config.xdg.configFile."mcp/mcp.json".source;
+  };
+  home.file.".pi/discord-agent/mcp.json" = lib.mkIf gerbilMcpEnabled {
+    source = config.xdg.configFile."mcp/mcp.json".source;
+  };
 
   home.file.".pi/agent/settings.base.json" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
@@ -1096,7 +1102,7 @@ in
     ''
   );
 
-  # Merge base + local into settings.json on every activation.
+  # Merge base + platform MCP defaults + local; local policy wins.
   home.activation.mergePiConfig = lib.mkIf (!isWorkMachine) (
     lib.hm.dag.entryAfter
       [
@@ -1110,17 +1116,14 @@ in
         target="$HOME/.pi/agent/settings.json"
 
         run mkdir -p "$HOME/.pi/agent"
-        if [ -f "$local" ]; then
-          run ${pkgs.nodejs}/bin/node -e "
-            const m = require('$HOME/.local/share/pnpm/global/5/node_modules/deepmerge');
-            const fs = require('fs');
-            const a = JSON.parse(fs.readFileSync('$base'));
-            const b = JSON.parse(fs.readFileSync('$local'));
-            console.log(JSON.stringify(m(a, b), null, 2));
-          " > "$target"
-        else
-          run cp "$base" "$target"
-        fi
+        run ${pkgs.nodejs}/bin/node -e '
+          const m = require(process.env.HOME + "/.local/share/pnpm/global/5/node_modules/deepmerge");
+          const fs = require("fs");
+          const a = JSON.parse(fs.readFileSync(process.argv[1]));
+          const b = fs.existsSync(process.argv[2]) ? JSON.parse(fs.readFileSync(process.argv[2])) : {};
+          const options = {customMerge: key => key === "tools" ? (_source, target) => target : undefined};
+          console.log(JSON.stringify(m(m(a, ${builtins.toJSON piMcpDefaults}, options), b, options), null, 2));
+        ' "$base" "$local" > "$target"
       ''
   );
 
@@ -1140,9 +1143,14 @@ in
       ''
         botdir="$HOME/.pi/discord-agent"
         run mkdir -p "$botdir"
-        run ${pkgs.jq}/bin/jq '.packages |= map(select(
-          . != "npm:pi-codebase-memory-mcp"
-        ))' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
+        run ${pkgs.jq}/bin/jq \
+          --argjson interactiveTools '${builtins.toJSON piInteractiveMcpTools}' \
+          --argjson discordTools '${builtins.toJSON piDiscordMcpTools}' '
+          .packages |= map(select(. != "npm:pi-codebase-memory-mcp")) |
+          .subagents.agentOverrides |= with_entries(
+            if .value.tools == $interactiveTools then .value.tools = $discordTools else . end
+          )
+        ' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
       ''
   );

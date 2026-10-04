@@ -4,4 +4,8 @@
 
 The package remains in `settings.base.json` for installation, skills and prompts, with its automatic extension entry disabled to avoid duplicate registration. The directory is already deployed by the existing extensions symlink.
 
-The `0.69.0` pin preserves compatibility with Pi Web's Pi SDK `0.85.1`. Version `0.70.1` imports newer `pi-ai` helpers that this host does not export; the `0.71.0` changelog explicitly raises the supported host minimum to `0.86.1`. Upgrade the pin with the host SDK, and validate an actual asynchronous child—not just tool registration or package resolution.
+## Native Gerbil MCP
+
+On personal x86_64 Linux machines, Home Manager adds `mcp:gerbil` to the configured roles through the standard `tools` allowlist described in [pi-subagents' tool-selection documentation](https://github.com/nicobailon/pi-subagents/blob/main/docs/agents.md#tool-and-extension-selection). `config/pi/subagent-mcp-tools.json` preserves the other installed tool capabilities; keep it aligned with the package and extension configuration. Home Manager leaves other platforms' inheritance unchanged, applies machine-local overrides last, and omits interactive-only tools from the Discord profile. No MCP-loading shim or installed-package patch is needed. Reload Pi and start fresh children after switching.
+
+Native MCP selection requires Pi 0.99 or later and pi-subagents 0.74.0 or later. The former 0.69.0 pin accommodated Pi Web's older SDK; it is no longer configured. Validate a real child after upgrades, not just package resolution.
