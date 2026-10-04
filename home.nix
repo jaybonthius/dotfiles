@@ -38,7 +38,8 @@ let
 
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
 
-  gerbilMcpEnabled = !isWorkMachine && pkgs.stdenv.hostPlatform.system == "x86_64-linux";
+  gerbilMcpEnabled =
+    !isWorkMachine && (pkgs.stdenv.isDarwin || pkgs.stdenv.hostPlatform.system == "x86_64-linux");
   piMcpTools = builtins.fromJSON (builtins.readFile ./config/pi/subagent-mcp-tools.json);
   piInteractiveMcpTools = piMcpTools.shared ++ piMcpTools.interactiveOnly;
   piDiscordMcpTools = piMcpTools.shared;
