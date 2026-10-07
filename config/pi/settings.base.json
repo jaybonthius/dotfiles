@@ -8,6 +8,7 @@
       "extensions": []
     },
     "npm:pi-web-access",
+    "npm:@gotgenes/pi-anthropic-auth",
     "npm:pi-system-theme",
     "npm:pi-powerline-footer",
     "npm:pi-verbosity-control",
