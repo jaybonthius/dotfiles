@@ -6,11 +6,11 @@ layouts:
       - title: editor
         panes:
           - title: editor
-            command: emacs-open-context
+            command: emacs -nw
       - title: pi
         panes:
           - title: pi
-            command: agent-open-context pi
+            command: pi
       - title: terminal
         panes:
           - title: terminal

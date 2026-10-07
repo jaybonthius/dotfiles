@@ -780,18 +780,6 @@ in
     force = true;
   };
 
-  home.file."bin/emacs-open-context" = {
-    source = ./config/bin/emacs-open-context;
-    executable = true;
-    force = true;
-  };
-
-  home.file."bin/agent-open-context" = {
-    source = ./config/bin/agent-open-context;
-    executable = true;
-    force = true;
-  };
-
   home.file."bin/agent-browser" = lib.mkIf (!isWorkMachine) {
     source = ./config/bin/agent-browser;
     executable = true;

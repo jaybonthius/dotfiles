@@ -3,9 +3,8 @@
 // see home.nix isWorkMachine).
 // Usage: ws <directory> [session-name]
 //
-// Tab 1: Emacs context-aware frame (project/magit when applicable)
-// Tab 2: claude coding agent (workbench-aware: repos inside an agent workbench
-//        launch claude from the workbench root through agent-open-context)
+// Tab 1: terminal Emacs
+// Tab 2: claude coding agent
 // Tab 3: terminal
 
 layout {
@@ -24,13 +23,13 @@ layout {
     }
 
     tab name="editor" focus=true {
-        pane command="emacs-open-context"
+        pane command="emacs" {
+            args "-nw"
+        }
     }
 
     tab name="claude" {
-        pane command="agent-open-context" {
-            args "claude"
-        }
+        pane command="claude"
     }
 
     tab name="terminal" {

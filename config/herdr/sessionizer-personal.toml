@@ -23,7 +23,7 @@ label = "editor"
 [[tabs.editor.panes]]
 id = "editor"
 title = "editor"
-command = "emacs-open-context"
+command = "emacs -nw"
 
 [tabs.pi]
 label = "pi"
@@ -31,7 +31,7 @@ label = "pi"
 [[tabs.pi.panes]]
 id = "pi"
 title = "pi"
-command = "agent-open-context pi"
+command = "pi"
 
 [tabs.terminal]
 label = "terminal"

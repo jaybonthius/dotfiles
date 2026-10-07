@@ -2,7 +2,7 @@
 // Deployed as project.kdl on non-work machines (see home.nix isWorkMachine).
 // Usage: ws <directory> [session-name]
 //
-// Tab 1: Emacs context-aware frame (project/magit when applicable)
+// Tab 1: terminal Emacs
 // Tab 2: pi coding agent
 // Tab 3: terminal
 
@@ -22,7 +22,9 @@ layout {
     }
 
     tab name="editor" focus=true {
-        pane command="emacs-open-context"
+        pane command="emacs" {
+            args "-nw"
+        }
     }
 
     tab name="pi" {

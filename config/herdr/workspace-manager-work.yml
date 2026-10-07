@@ -6,11 +6,11 @@ layouts:
       - title: editor
         panes:
           - title: editor
-            command: emacs-open-context
+            command: emacs -nw
       - title: claude
         panes:
           - title: claude
-            command: agent-open-context claude
+            command: claude
       - title: terminal
         panes:
           - title: terminal
