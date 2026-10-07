@@ -1689,6 +1689,14 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   :custom
   (magit-difftastic-display "inline")
   :config
+  ;; Difftastic paints changed tokens itself. Magit's generic body highlight
+  ;; masks their red/green backgrounds; keep focus on these hunk headings only.
+  (cl-defmethod magit-section-highlight :around ((section magit-section))
+    (if (eq (oref section type) 'magit-difftastic-hunk)
+        (magit-section-highlight-range
+         (oref section start) (or (oref section content) (oref section end))
+         (oref section heading-highlight-face))
+      (cl-call-next-method)))
   (magit-difftastic-mode +1))
 
 (use-package difftastic-bindings
