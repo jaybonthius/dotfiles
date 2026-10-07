@@ -46,8 +46,8 @@ let
   # Native MCP is selected with mcp:server, not tools:inherit. Keep the
   # explicit allowlist alongside the packages whose tools it preserves.
   piMcpDefaults = lib.optionalAttrs gerbilMcpEnabled {
-    subagents.agentOverrides = lib.mapAttrs (_: _: {
-      tools = piInteractiveMcpTools;
+    subagents.agentOverrides = lib.mapAttrs (name: _: {
+      tools = lib.optional (name == "reviewer") "watchdog_diff" ++ piInteractiveMcpTools;
     }) (builtins.fromJSON (builtins.readFile ./config/pi/settings.base.json)).subagents.agentOverrides;
   };
 
@@ -569,6 +569,8 @@ in
     text = builtins.toJSON {
       mcpServers.gerbil = {
         command = "gerbil-mcp";
+        # Native subagents resolve MCP names in the parent before connecting
+        # in another cwd; advertise the same full catalog in both sessions.
         env.GERBIL_MCP_MODE = "full";
       };
     };
@@ -1149,7 +1151,10 @@ in
           --argjson discordTools '${builtins.toJSON piDiscordMcpTools}' '
           .packages |= map(select(. != "npm:pi-codebase-memory-mcp")) |
           .subagents.agentOverrides |= with_entries(
-            if .value.tools == $interactiveTools then .value.tools = $discordTools else . end
+            if .value.tools == $interactiveTools then .value.tools = $discordTools
+            elif .key == "reviewer" and .value.tools == (["watchdog_diff"] + $interactiveTools)
+            then .value.tools = (["watchdog_diff"] + $discordTools)
+            else . end
           )
         ' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
