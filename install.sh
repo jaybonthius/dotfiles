@@ -79,6 +79,12 @@ switch() {
 
     info "Using configuration: $config"
 
+    # These macOS tools always follow main; leave other inputs untouched.
+    if [ "$config" = "aarch64-darwin" ]; then
+        info "Updating scrollkey and meizure from main..."
+        nix flake update scrollkey meizure --flake "$DOTFILES_DIR"
+    fi
+
     # --impure allows home.nix to read $USER/$HOME via builtins.getEnv
     if ! command -v home-manager >/dev/null 2>&1; then
         info "Bootstrapping home-manager..."

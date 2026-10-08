@@ -3,6 +3,8 @@
   pkgs,
   lib,
   minimal-emacs,
+  scrollkey,
+  meizure,
   zig,
   paseo,
   herdr,
@@ -96,6 +98,39 @@ let
   ]);
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
+
+  # main is refreshed by install.sh switch on macOS; flake.lock records each build.
+  scrollkeyPackage = pkgs.callPackage "${scrollkey}/default.nix" { };
+
+  meizurePackage = pkgs.stdenv.mkDerivation {
+    pname = "meizure";
+    version = "unstable-${meizure.shortRev}";
+    src = meizure;
+
+    # Use Nix's compiler and SDK rather than the host's xcrun.
+    makeFlags = [
+      "CC=cc"
+      "SDKFLAGS="
+    ];
+    doCheck = true;
+    checkTarget = "test";
+
+    installPhase = ''
+      runHook preInstall
+      install -Dm755 build/meizure "$out/bin/meizure"
+      runHook postInstall
+    '';
+
+    # Preserve the linker's ad-hoc signature for macOS permission checks.
+    dontStrip = true;
+
+    meta = {
+      description = "Jiggle the mouse after inactivity";
+      homepage = "https://github.com/jaybonthius/meizure";
+      platforms = lib.platforms.darwin;
+      mainProgram = "meizure";
+    };
+  };
 
   zjstatus = pkgs.stdenv.mkDerivation rec {
     pname = "zjstatus";
@@ -315,7 +350,57 @@ in
       fswatch
       ghostty-bin
       jimeh-emacs
+      scrollkeyPackage
+      meizurePackage
     ];
+
+  # Shift scrolls on one axis; hold Control as well to allow diagonals.
+  # macOS requires a separate Accessibility grant for this startup executable.
+  launchd.agents.scrollkey = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        (lib.getExe scrollkeyPackage)
+        "left_shift"
+        "--diagonal"
+        "off"
+        "--diagonal-modifier"
+        "left_control"
+      ];
+      RunAtLoad = true;
+      KeepAlive = {
+        SuccessfulExit = false;
+      };
+      ThrottleInterval = 30;
+      LimitLoadToSessionType = "Aqua";
+      ProcessType = "Interactive";
+      StandardErrorPath = "${homeDirectory}/Library/Logs/scrollkey.log";
+    };
+  };
+
+  # meizure uses its default five-second delay. Grant Accessibility and Input
+  # Monitoring to this executable before the launch agent can run successfully.
+  launchd.agents.meizure = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ (lib.getExe meizurePackage) ];
+      RunAtLoad = true;
+      KeepAlive = {
+        SuccessfulExit = false;
+      };
+      ThrottleInterval = 30;
+      LimitLoadToSessionType = "Aqua";
+      ProcessType = "Interactive";
+      StandardErrorPath = "${homeDirectory}/Library/Logs/meizure.log";
+    };
+  };
+
+  # Both launch agents need their log directory before setupLaunchAgents runs.
+  home.activation.scrollkeyLogs = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" ] ''
+      run mkdir -p ${lib.escapeShellArg "${homeDirectory}/Library/Logs"}
+    ''
+  );
 
   # ── Environment variables ───────────────────────────────────────────
 

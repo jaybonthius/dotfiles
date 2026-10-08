@@ -130,6 +130,23 @@
         "type": "github"
       }
     },
+    "meizure": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791302448,
+        "narHash": "sha256-g1ulYc8hcgicFikyHlY/sc8sFXghLYEMYa7EuvLmtsE=",
+        "owner": "jaybonthius",
+        "repo": "meizure",
+        "rev": "6da6611c488f12b6cc51d1ad1179ae0d45b16747",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jaybonthius",
+        "ref": "main",
+        "repo": "meizure",
+        "type": "github"
+      }
+    },
     "minimal-emacs": {
       "flake": false,
       "locked": {
@@ -206,9 +223,11 @@
         "herdr-sessionizer": "herdr-sessionizer",
         "herdr-symlink-worktree": "herdr-symlink-worktree",
         "home-manager": "home-manager",
+        "meizure": "meizure",
         "minimal-emacs": "minimal-emacs",
         "nixpkgs": "nixpkgs",
         "paseo": "paseo",
+        "scrollkey": "scrollkey",
         "zig": "zig"
       }
     },
@@ -251,6 +270,23 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "scrollkey": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791319709,
+        "narHash": "sha256-Ccd4RMImE4vGQMuKeJJrxfnIBcDaK9eBNtjlyaTQOxw=",
+        "owner": "jaybonthius",
+        "repo": "scrollkey",
+        "rev": "45187755bde498df6a47340579a0d53b477b8a89",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jaybonthius",
+        "ref": "main",
+        "repo": "scrollkey",
         "type": "github"
       }
     },

@@ -4,6 +4,14 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     zig.url = "github:mitchellh/zig-overlay";
+    scrollkey = {
+      url = "github:jaybonthius/scrollkey/main";
+      flake = false;
+    };
+    meizure = {
+      url = "github:jaybonthius/meizure/main";
+      flake = false;
+    };
     emacs-tramp-rpc = {
       url = "github:ArthurHeymans/emacs-tramp-rpc";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -43,6 +51,8 @@
       nixpkgs,
       home-manager,
       minimal-emacs,
+      scrollkey,
+      meizure,
       emacs-tramp-rpc,
       zig,
       paseo,
@@ -68,6 +78,8 @@
           extraSpecialArgs = {
             inherit
               minimal-emacs
+              scrollkey
+              meizure
               zig
               paseo
               herdr
