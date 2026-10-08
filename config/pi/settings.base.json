@@ -25,52 +25,98 @@
   "subagents": {
     "agentOverrides": {
       "worker": {
-        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "high",
         "tools": "inherit",
         "inheritSkills": true
       },
       "reviewer": {
-        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "planner": {
-        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "oracle": {
-        "model": "openai-codex/gpt-6.1-sol",
         "thinking": "xhigh",
         "tools": "inherit",
         "inheritSkills": true
       },
       "scout": {
-        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "context-builder": {
-        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "researcher": {
-        "model": "openai-codex/gpt-6-luna",
         "thinking": "medium",
         "tools": "inherit",
         "inheritSkills": true
       },
       "delegate": {
-        "model": "openai-codex/gpt-6-luna",
         "thinking": "low",
         "tools": "inherit",
         "inheritSkills": true
+      }
+    },
+    "agentOverridesByProvider": {
+      "anthropic": {
+        "worker": {
+          "model": "anthropic/claude-opus-5-5"
+        },
+        "reviewer": {
+          "model": "anthropic/claude-opus-5-5"
+        },
+        "planner": {
+          "model": "anthropic/claude-opus-5-5"
+        },
+        "oracle": {
+          "model": "anthropic/claude-opus-5-5"
+        },
+        "scout": {
+          "model": "anthropic/claude-sonnet-5-5"
+        },
+        "context-builder": {
+          "model": "anthropic/claude-sonnet-5-5"
+        },
+        "researcher": {
+          "model": "anthropic/claude-sonnet-5-5"
+        },
+        "delegate": {
+          "model": "anthropic/claude-sonnet-5-5"
+        }
+      },
+      "openai-codex": {
+        "worker": {
+          "model": "openai-codex/gpt-6.1-sol"
+        },
+        "reviewer": {
+          "model": "openai-codex/gpt-6.1-sol"
+        },
+        "planner": {
+          "model": "openai-codex/gpt-6.1-sol"
+        },
+        "oracle": {
+          "model": "openai-codex/gpt-6.1-sol"
+        },
+        "scout": {
+          "model": "openai-codex/gpt-6-luna"
+        },
+        "context-builder": {
+          "model": "openai-codex/gpt-6-luna"
+        },
+        "researcher": {
+          "model": "openai-codex/gpt-6-luna"
+        },
+        "delegate": {
+          "model": "openai-codex/gpt-6-luna"
+        }
       }
     }
   },
