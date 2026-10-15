@@ -3,6 +3,8 @@
   pkgs,
   lib,
   minimal-emacs,
+  scrollkey,
+  meizure,
   zig,
   paseo,
   herdr,
@@ -37,19 +39,6 @@ let
   hostname = if builtins.pathExists /etc/hostname then builtins.readFile /etc/hostname else "";
 
   isWorkMachine = lib.hasPrefix "pairing-" hostname;
-
-  gerbilMcpEnabled =
-    !isWorkMachine && (pkgs.stdenv.isDarwin || pkgs.stdenv.hostPlatform.system == "x86_64-linux");
-  piMcpTools = builtins.fromJSON (builtins.readFile ./config/pi/subagent-mcp-tools.json);
-  piInteractiveMcpTools = piMcpTools.shared ++ piMcpTools.interactiveOnly;
-  piDiscordMcpTools = piMcpTools.shared;
-  # Native MCP is selected with mcp:server, not tools:inherit. Keep the
-  # explicit allowlist alongside the packages whose tools it preserves.
-  piMcpDefaults = lib.optionalAttrs gerbilMcpEnabled {
-    subagents.agentOverrides = lib.mapAttrs (name: _: {
-      tools = lib.optional (name == "reviewer") "watchdog_diff" ++ piInteractiveMcpTools;
-    }) (builtins.fromJSON (builtins.readFile ./config/pi/settings.base.json)).subagents.agentOverrides;
-  };
 
   mattPocockSkill = name: {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/${name}";
@@ -109,6 +98,39 @@ let
   ]);
 
   # ── Custom packages not in nixpkgs ──────────────────────────────────
+
+  # main is refreshed by install.sh switch on macOS; flake.lock records each build.
+  scrollkeyPackage = pkgs.callPackage "${scrollkey}/default.nix" { };
+
+  meizurePackage = pkgs.stdenv.mkDerivation {
+    pname = "meizure";
+    version = "unstable-${meizure.shortRev}";
+    src = meizure;
+
+    # Use Nix's compiler and SDK rather than the host's xcrun.
+    makeFlags = [
+      "CC=cc"
+      "SDKFLAGS="
+    ];
+    doCheck = true;
+    checkTarget = "test";
+
+    installPhase = ''
+      runHook preInstall
+      install -Dm755 build/meizure "$out/bin/meizure"
+      runHook postInstall
+    '';
+
+    # Preserve the linker's ad-hoc signature for macOS permission checks.
+    dontStrip = true;
+
+    meta = {
+      description = "Jiggle the mouse after inactivity";
+      homepage = "https://github.com/jaybonthius/meizure";
+      platforms = lib.platforms.darwin;
+      mainProgram = "meizure";
+    };
+  };
 
   zjstatus = pkgs.stdenv.mkDerivation rec {
     pname = "zjstatus";
@@ -328,7 +350,57 @@ in
       fswatch
       ghostty-bin
       jimeh-emacs
+      scrollkeyPackage
+      meizurePackage
     ];
+
+  # Shift scrolls on one axis; hold Control as well to allow diagonals.
+  # macOS requires a separate Accessibility grant for this startup executable.
+  launchd.agents.scrollkey = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [
+        (lib.getExe scrollkeyPackage)
+        "left_shift"
+        "--diagonal"
+        "off"
+        "--diagonal-modifier"
+        "left_control"
+      ];
+      RunAtLoad = true;
+      KeepAlive = {
+        SuccessfulExit = false;
+      };
+      ThrottleInterval = 30;
+      LimitLoadToSessionType = "Aqua";
+      ProcessType = "Interactive";
+      StandardErrorPath = "${homeDirectory}/Library/Logs/scrollkey.log";
+    };
+  };
+
+  # meizure uses its default five-second delay. Grant Accessibility and Input
+  # Monitoring to this executable before the launch agent can run successfully.
+  launchd.agents.meizure = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+    config = {
+      ProgramArguments = [ (lib.getExe meizurePackage) ];
+      RunAtLoad = true;
+      KeepAlive = {
+        SuccessfulExit = false;
+      };
+      ThrottleInterval = 30;
+      LimitLoadToSessionType = "Aqua";
+      ProcessType = "Interactive";
+      StandardErrorPath = "${homeDirectory}/Library/Logs/meizure.log";
+    };
+  };
+
+  # Both launch agents need their log directory before setupLaunchAgents runs.
+  home.activation.scrollkeyLogs = lib.mkIf pkgs.stdenv.isDarwin (
+    lib.hm.dag.entryBetween [ "setupLaunchAgents" ] [ "writeBoundary" ] ''
+      run mkdir -p ${lib.escapeShellArg "${homeDirectory}/Library/Logs"}
+    ''
+  );
 
   # ── Environment variables ───────────────────────────────────────────
 
@@ -565,25 +637,6 @@ in
 
   # ── Pi Coding Agent (personal machines only) ─────────────────────────
   # Existing Pi state on pairing hosts is intentionally left unmanaged.
-  xdg.configFile."mcp/mcp.json" = lib.mkIf gerbilMcpEnabled {
-    text = builtins.toJSON {
-      mcpServers.gerbil = {
-        command = "gerbil-mcp";
-        # Native subagents resolve MCP names in the parent before connecting
-        # in another cwd; advertise the same full catalog in both sessions.
-        env.GERBIL_MCP_MODE = "full";
-      };
-    };
-  };
-
-  # Built-in MCP reads each agent directory rather than the shared XDG config.
-  home.file.".pi/agent/mcp.json" = lib.mkIf gerbilMcpEnabled {
-    source = config.xdg.configFile."mcp/mcp.json".source;
-  };
-  home.file.".pi/discord-agent/mcp.json" = lib.mkIf gerbilMcpEnabled {
-    source = config.xdg.configFile."mcp/mcp.json".source;
-  };
-
   home.file.".pi/agent/settings.base.json" = lib.mkIf (!isWorkMachine) {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/settings.base.json";
     force = true;
@@ -693,11 +746,6 @@ in
 
   home.file.".agents/skills/develop" = {
     source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/develop";
-    force = true;
-  };
-
-  home.file.".agents/skills/save-discoveries" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/pi/skills/save-discoveries";
     force = true;
   };
 
@@ -1093,7 +1141,7 @@ in
     ''
   );
 
-  # Merge base + platform MCP defaults + local; local policy wins.
+  # Merge base + local into settings.json on every activation.
   home.activation.mergePiConfig = lib.mkIf (!isWorkMachine) (
     lib.hm.dag.entryAfter
       [
@@ -1112,8 +1160,7 @@ in
           const fs = require("fs");
           const a = JSON.parse(fs.readFileSync(process.argv[1]));
           const b = fs.existsSync(process.argv[2]) ? JSON.parse(fs.readFileSync(process.argv[2])) : {};
-          const options = {customMerge: key => key === "tools" ? (_source, target) => target : undefined};
-          console.log(JSON.stringify(m(m(a, ${builtins.toJSON piMcpDefaults}, options), b, options), null, 2));
+          console.log(JSON.stringify(m(a, b), null, 2));
         ' "$base" "$local" > "$target"
       ''
   );
@@ -1134,17 +1181,9 @@ in
       ''
         botdir="$HOME/.pi/discord-agent"
         run mkdir -p "$botdir"
-        run ${pkgs.jq}/bin/jq \
-          --argjson interactiveTools '${builtins.toJSON piInteractiveMcpTools}' \
-          --argjson discordTools '${builtins.toJSON piDiscordMcpTools}' '
-          .packages |= map(select(. != "npm:pi-codebase-memory-mcp")) |
-          .subagents.agentOverrides |= with_entries(
-            if .value.tools == $interactiveTools then .value.tools = $discordTools
-            elif .key == "reviewer" and .value.tools == (["watchdog_diff"] + $interactiveTools)
-            then .value.tools = (["watchdog_diff"] + $discordTools)
-            else . end
-          )
-        ' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
+        run ${pkgs.jq}/bin/jq '.packages |= map(select(
+          . != "npm:pi-codebase-memory-mcp"
+        ))' "$HOME/.pi/agent/settings.json" > "$botdir/settings.json"
         run ln -sf "$HOME/.pi/agent/auth.json" "$botdir/auth.json"
       ''
   );
