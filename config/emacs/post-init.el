@@ -1926,21 +1926,13 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
 
 (with-eval-after-load 'eglot
   ;; Register scheme-langserver for static Chez/R6RS code intelligence.
-  ;; Start it explicitly with M-x eglot in Chez buffers.
+  ;; Start it explicitly with M-x eglot in Chez buffers so it is never
+  ;; selected for `gerbil-mode', which derives from `scheme-mode'.
   ;; Geiser remains responsible for REPL interaction and evaluation.
   (add-to-list 'eglot-server-programs
                '(scheme-mode . ("scheme-langserver"
                                 "-m" "enable"
                                 "-t" "disable")))
-
-  ;; Prefer Gerbil's native v0.19 server over its parent Scheme mode.
-  ;; Use M-x eglot only in trusted local workspaces: analysis executes
-  ;; compile-time code.  The current worker backend requires Linux 5.9+.
-  (add-to-list 'eglot-server-programs
-               `(gerbil-mode
-                 . (,(expand-file-name
-                      "~/Code/workbench-gerbil/gerbil__v0.19-lsp/run.sh")
-                    "gxlsp" "--stdio")))
 
   ;; Register basedpyright as the Python LSP server.
   (add-to-list 'eglot-server-programs
