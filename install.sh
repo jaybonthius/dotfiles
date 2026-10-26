@@ -130,13 +130,15 @@ opener_ssh_forward() {
 
 compile_terminfo() {
     info "Compiling custom terminfo entries..."
-    local ti_file="$DOTFILES_DIR/config/terminfo/xterm-ghostty.ti"
-    if [ -f "$ti_file" ]; then
-        tic -x -o "$HOME/.terminfo" "$ti_file"
-        ok "Terminfo compiled"
-    else
-        warn "Terminfo file not found: $ti_file"
-    fi
+    local ti_file
+    for ti_file in "$DOTFILES_DIR"/config/terminfo/*.ti; do
+        if [ -f "$ti_file" ]; then
+            tic -x -o "$HOME/.terminfo" "$ti_file"
+            ok "Terminfo compiled: $(basename "$ti_file")"
+        else
+            warn "No terminfo files in $DOTFILES_DIR/config/terminfo"
+        fi
+    done
 }
 
 default_shell() {

@@ -590,6 +590,14 @@ in
     force = true;
   };
 
+  # ── Rex ─────────────────────────────────────────────────────────────
+  # init.lua is read by whichever Rex server runs on this machine.
+  # Run `rex config reload` after editing; Rex doesn't watch the file.
+  xdg.configFile."rex" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${homeDirectory}/dotfiles/config/rex";
+    force = true;
+  };
+
   # ── Emacs ───────────────────────────────────────────────────────────
   # Emacs config uses Elpaca for package management, so we just symlink
   # the config files. minimal-emacs.d is a flake input.
@@ -943,9 +951,11 @@ in
   # ── Terminfo (activation script) ────────────────────────────────────
 
   home.activation.compileTerminfo = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    if [ -f "${./config/terminfo/xterm-ghostty.ti}" ]; then
-      run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "${./config/terminfo/xterm-ghostty.ti}"
-    fi
+    # Nix-built ncurses only searches ~/.terminfo and its own store path,
+    # not /usr/share/terminfo, so Nix programs need these entries here.
+    for ti in ${./config/terminfo/xterm-ghostty.ti} ${./config/terminfo/xterm-rex.ti}; do
+      run ${pkgs.ncurses}/bin/tic -x -o "$HOME/.terminfo" "$ti"
+    done
   '';
 
   # ── Claude Code config merge (activation scripts) ──────────────────
