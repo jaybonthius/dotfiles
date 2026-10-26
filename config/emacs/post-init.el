@@ -1906,15 +1906,18 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
   :custom
   (geiser-chez-binary "scheme"))
 
-;;; Gerbil Scheme: install the upstream editing mode directly from its source.
+;;; Gerbil Scheme: load the editing mode from the local lsp-for-reals checkout
+;;; (indentation that agrees with gxfmt, .gxfmt rules, here-strings).  To go
+;;; back to upstream, restore
+;;;   :ensure (:host github :repo "mighty-gerbils/gerbil" :files ("etc/gerbil-mode.el"))
 ;;; `gerbil-mode' uses `gxi' for its inferior Scheme process; launch one with
-;;; M-x run-scheme from a Gerbil buffer.
+;;; M-x run-scheme from a Gerbil buffer.  Eglot starts gxlsp automatically.
 
 (use-package gerbil-mode
-  :ensure (:host github
-           :repo "mighty-gerbils/gerbil"
-           :files ("etc/gerbil-mode.el"))
+  :ensure nil
+  :load-path "~/Code/workbench-gerbil/gerbil__v0.19-lsp-for-reals/etc"
   :demand t
+  :hook (gerbil-mode . eglot-ensure)
   :mode (("\\.ss\\'" . gerbil-mode)
          ("\\.pkg\\'" . gerbil-mode))
   :custom
@@ -1933,6 +1936,13 @@ Uses `gh' for GitHub/GHE remotes, `fj' for Forgejo/Codeberg."
                '(scheme-mode . ("scheme-langserver"
                                 "-m" "enable"
                                 "-t" "disable")))
+
+  ;; Register gxlsp (Gerbil language server, with gxlint diagnostics and
+  ;; gxfmt formatting) for `gerbil-mode'.  Added after the `scheme-mode'
+  ;; entry so it comes first and wins for Gerbil buffers.  The snapshot is a
+  ;; frozen build, independent of rebuilds in the checkout.
+  (add-to-list 'eglot-server-programs
+               '(gerbil-mode . ("/home/jay/Code/workbench-gerbil/scratch/gxlsp-snapshot/gxlsp")))
 
   ;; Register basedpyright as the Python LSP server.
   (add-to-list 'eglot-server-programs
