@@ -31,6 +31,13 @@ else if test "$TERM" = "xterm-color"; and infocmp xterm-ghostty >/dev/null 2>&1
     set -gx TERM xterm-ghostty
 end
 
+# Rex terminals carry no SSH variables and may inherit the server's DISPLAY,
+# so Pi would copy to the server's X clipboard instead of the viewing client.
+# Make Pi also emit OSC 52, which Rex forwards to the client's clipboard.
+if test "$TERM_PROGRAM" = "rex"
+    set -gx PI_CLIPBOARD_OSC52 1
+end
+
 # greeting
 function fish_greeting -d "What's up, fish?"
     set_color $fish_color_autosuggestion
